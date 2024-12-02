@@ -52,8 +52,8 @@ def enrich_Timber_Industry(ti_gdb_path,
     ti = gpd.read_file(ti_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {ti_layer_name}")
     logger.info(f"   time for loading {ti_layer_name}: {time.time()-start}")
 
+    # validate the input data
     verify_gdf_columns(ti, TIMBER_INDUSTRY_SPATIAL_COLUMNS, logger)
-    exit()
     
     ti = ti.to_crs(3310)
     # ti = ti.loc[ti['Status'] == 'Exists']           # need to validate

@@ -93,6 +93,10 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
     # Load Broad_Vegetation_Types as GeoDataFrame
     logger.info(f"      enrich step 1/32 summarize veg within polygons")    
     start = time.time()
+    
+    if not os.path.exists("cache"):
+        os.makedirs("cache")
+        
     if os.path.exists("cache/Broad_Vegetation_Types.parquet"):
         veg_layer = gpd.read_parquet("cache/Broad_Vegetation_Types.parquet")
         logger.info("         Loaded Broad_Vegetation_Types from cache")
