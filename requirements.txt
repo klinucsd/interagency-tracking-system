@@ -1,0 +1,6 @@
+fiona
+GDAL
+geopandas
+openpyxl
+pandas
+pyogrio
