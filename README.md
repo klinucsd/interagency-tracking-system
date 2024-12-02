@@ -59,6 +59,17 @@ This comprehensive system enables the Task Force to monitor, analyze, and report
 
 ## Enrich Timber Industry Spatial Data
 
+   Edit lines 186–190 of the file `enrich/enrich_Timber_Industry.py` to specify the following:
+
+   - Your `a_Reference` geodatabase path
+   - The timber spatial data geodatabase path
+   - The start and end years
+
+   Then, run the following command:
+
+   `python enrich/enrich_Timber_Industry.py`
+
+
 
 
 
