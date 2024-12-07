@@ -72,6 +72,19 @@ This comprehensive system enables the Task Force to monitor, analyze, and report
 
    	 `python enrich/enrich_Timber_Industry.py`
 
+### Enrich BLM Data
+
+   Edit lines 246–250 of the file `enrich/enrich_BLM.py` to specify the following:
+
+   - Your `a_Reference` geodatabase path
+   - The BLM data geodatabase path
+   - The BLM feature layer name
+   - The start and end years
+
+   Then, run the following command:
+
+   	 `python enrich/enrich_BLM.py`
+
 
 
 
