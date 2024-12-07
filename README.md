@@ -57,7 +57,10 @@ This comprehensive system enables the Task Force to monitor, analyze, and report
 
    The downloaded Docker image contains the FileGDB Driver needed for geodatabase operations.
 
-## Enrich Timber Industry Spatial Data
+
+## Enrichment Process
+
+### Enrich Timber Industry Spatial Data
 
    Edit lines 186–190 of the file `enrich/enrich_Timber_Industry.py` to specify the following:
 
@@ -67,7 +70,7 @@ This comprehensive system enables the Task Force to monitor, analyze, and report
 
    Then, run the following command:
 
-   `python enrich/enrich_Timber_Industry.py`
+   	 `python enrich/enrich_Timber_Industry.py`
 
 
 
