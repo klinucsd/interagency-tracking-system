@@ -173,10 +173,13 @@ def enrich_Timber_Industry(ti_gdb_path,
 
     logger.info("   step 14/15 Assign Domains...")
     enriched_ti = assign_domains(enriched_ti)
-
+    
     logger.info("   step 15/15 Save Result...")
     # enriched_ti.to_file('c_Enriched/Timber_Industry_Spatial_enriched.geojson', driver='GeoJSON')
-    save_gdf_to_gdb(enriched_ti, "/tmp/Timber_Industry_Spatial_20241130.gdb", "Timber_Industry_Spatial_20241130", group_name="c_Enriched")
+    save_gdf_to_gdb(enriched_ti,
+                    f"/tmp/Timber_Industry_Spatial_{start_year}_{end_year}.gdb",
+                    f"Timber_Industry_Spatial_{datetime.today().strftime('%Y%m%d')}",
+                    group_name="c_Enriched")
     
     
 if __name__ == "__main__":
