@@ -54,7 +54,9 @@ def enrich_BLM(blm_gdb_path,
                blm_layer_name, 
                a_reference_gdb_path,
                start_year,
-               end_year):
+               end_year,
+               output_gdb_path,
+               output_layer_name):
 
     logger.info("Load the BLM data into a GeoDataFrame")
     start = time.time()
@@ -247,13 +249,32 @@ def enrich_BLM(blm_gdb_path,
     enriched_blm = assign_domains(enriched_blm)
 
     logger.info("   step 15/15 Save Result...")
-    save_gdf_to_gdb(enriched_blm, f"/tmp/BLM_{start_year}_{end_year}.gdb", f"BLM_enriched_{datetime.today().strftime('%Y%m%d')}", group_name="c_Enriched")
+    save_gdf_to_gdb(enriched_blm,
+                    output_gdb_path,
+                    output_layer_name,
+                    group_name="c_Enriched")
     
     
 if __name__ == "__main__":
-    enrich_BLM("/home/klin/misc/test_its/BLM.gdb",
-               "BLM_20230813",
-               "a_Reference.gdb",
-               2010,
-               2025)
+    # Get the current process ID
+    process = psutil.Process(os.getpid())
+    
+    blm_input_gdb_path = "/home/klin/misc/test_its/BLM.gdb"
+    blm_input_layer_name = "BLM_20230813"
+    a_reference_gdb_path = "a_Reference.gdb"
+    start_year, end_year = 2010, 2025
+    output_gdb_path = f"/tmp/BLM_{start_year}_{end_year}.gdb"
+    output_layer_name = f"BLM_enriched_{datetime.today().strftime('%Y%m%d')}"
 
+    enrich_BLM(blm_input_gdb_path,
+               blm_input_layer_name,
+               a_reference_gdb_path,
+               start_year,
+               end_year,
+               output_gdb_path,
+               output_layer_name)
+
+    # Get memory usage in bytes, convert to MB
+    memory_usage = process.memory_info().rss / 1024 / 1024
+    logger.info(f"Memory usage: {memory_usage:.2f} MB")
+    

@@ -64,11 +64,15 @@ This comprehensive system enables the Task Force to monitor, analyze, and report
 
    Call the function `enrich_Timber_Industry` in the file `enrich/enrich_Timber_Industry.py` with the following parameters:
 
-   - Your `a_Reference` geodatabase path
+   - The path of the input geodatabase containing timber industry spatial data 
+   - The layer name of the timber industry spatial data in the input geodatabase 
+   - The `a_Reference` geodatabase path
    - The timber spatial data geodatabase path
    - The start and end years
+   - The path of the output geodatabase path
+   - The layer name of the output data
 
-   Also you can edit the five lines of the file `enrich/enrich_Timber_Industry.py` and then run the following command:
+   Also you can edit the code under `if __name__ == "__main__"` in the end of the file `enrich/enrich_Timber_Industry.py` and then run the following command:
 
    	 `python enrich/enrich_Timber_Industry.py`
 
@@ -76,12 +80,14 @@ This comprehensive system enables the Task Force to monitor, analyze, and report
 
    Call the function `enrich_BLM` in the file `enrich/enrich_BLM.py` with the following parameters:
 
-   - Your `a_Reference` geodatabase path
-   - The BLM data geodatabase path
-   - The BLM feature layer name
+   - The path of the input geodatabase containing BLM data 
+   - The feature layer name of the BLM data in the input geodatabase 
+   - The `a_Reference` geodatabase path
    - The start and end years
+   - The path of the output geodatabase path
+   - The layer name of the output data
 
-   Also you can edit the last five lines of the file `enrich/enrich_BLM.py` and then run the following command:
+   Also you can edit the code under `if __name__ == "__main__"` in the end of the file `enrich/enrich_BLM.py` and then run the following command:
 
    	 `python enrich/enrich_BLM.py`
 

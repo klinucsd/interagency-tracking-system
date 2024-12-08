@@ -50,7 +50,9 @@ def enrich_Timber_Industry(ti_gdb_path,
                            ti_layer_name, 
                            a_reference_gdb_path,
                            start_year,
-                           end_year):
+                           end_year,
+                           output_gdb_path,
+                           output_layer_name):
 
     logger.info("Load the Timeber Industry Spatial Layer into a GeoDataFrame")
     
@@ -184,20 +186,29 @@ def enrich_Timber_Industry(ti_gdb_path,
     logger.info("   step 15/15 Save Result...")
     # enriched_ti.to_file('c_Enriched/Timber_Industry_Spatial_enriched.geojson', driver='GeoJSON')
     save_gdf_to_gdb(enriched_ti,
-                    f"/tmp/Timber_Industry_Spatial_{start_year}_{end_year}.gdb",
-                    f"Timber_Industry_Spatial_{datetime.today().strftime('%Y%m%d')}",
+                    output_gdb_path,
+                    output_layer_name,
                     group_name="c_Enriched")
     
     
 if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
+
+    ti_input_gdb_path = "FFSC_MOU_2023_20240627_RebeccaFerkovichViaEmail.gdb"
+    ti_input_layer_name = "FFSC_MOU_IndustryOnly_Pol"
+    a_reference_gdb_path = "a_Reference.gdb"
+    start_year, end_year = 2021, 2023
+    output_gdb_path = f"/tmp/Timber_Industry_Spatial_{start_year}_{end_year}.gdb"
+    output_layer_name = f"Timber_Industry_Spatial_{datetime.today().strftime('%Y%m%d')}"
     
-    enrich_Timber_Industry("FFSC_MOU_2023_20240627_RebeccaFerkovichViaEmail.gdb",
-                           "FFSC_MOU_IndustryOnly_Pol",
+    enrich_Timber_Industry(ti_input_gdb_path,
+                           ti_input_layer_name,
                            "a_Reference.gdb",
-                           2021,
-                           2023)
+                           start_year,
+                           end_year,
+                           output_gdb_path,
+                           output_layer_name)
 
     # Get memory usage in bytes, convert to MB
     memory_usage = process.memory_info().rss / 1024 / 1024
