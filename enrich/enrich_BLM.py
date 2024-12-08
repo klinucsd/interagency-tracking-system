@@ -1,4 +1,12 @@
 
+"""
+# Description: Converts the U.S. Department of Interior, Bureau 
+#              of Land Management's fuels treatments dataset 
+#              into the Task Force standardized schema.  Dataset
+#              is enriched with vegetation, ownership, county, WUI, 
+#              Task Force Region, and year.             
+"""
+
 import warnings
 import logging
 import time
