@@ -339,7 +339,7 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
     enriched_gdf = keep_fields(crosswalk_table)
     show_columns(logger, enriched_gdf, "enriched_gdf")
     
-    logger.info("            enrich step 32/32  delete if County is Null")
+    logger.info("            enrich step 32/32 delete if County is Null")
     enriched_gdf = enriched_gdf[enriched_gdf["COUNTY"].notnull()]
     show_columns(logger, enriched_gdf, "enriched_gdf")
     
