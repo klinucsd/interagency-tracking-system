@@ -62,7 +62,7 @@ This comprehensive system enables the Task Force to monitor, analyze, and report
 
 ### Enrich Timber Industry Spatial Data
 
-   Edit lines 186–190 of the file `enrich/enrich_Timber_Industry.py` to specify the following:
+   Edit the last five lines of the file `enrich/enrich_Timber_Industry.py` to specify the following:
 
    - Your `a_Reference` geodatabase path
    - The timber spatial data geodatabase path
@@ -74,7 +74,7 @@ This comprehensive system enables the Task Force to monitor, analyze, and report
 
 ### Enrich Bureau of Land Management (BLM)'s Fuels Treatments Data
 
-   Edit lines 246–250 of the file `enrich/enrich_BLM.py` to specify the following:
+   Edit the last five lines of the file `enrich/enrich_BLM.py` to specify the following:
 
    - Your `a_Reference` geodatabase path
    - The BLM data geodatabase path
