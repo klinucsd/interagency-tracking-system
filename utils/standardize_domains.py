@@ -62,10 +62,17 @@ def update_org_field(org):
         'Other': 'OTHER',
         'Timber Companies': 'TIMBER',
     }
+
+    if pd.isna(org):  # Check if the value is missing (pd.NA, np.nan, or None)
+        return None
     return org_mapping.get(org, None if org in ['', ' '] else org)
 
 
 def update_project_status_field(status):
+
+    if pd.isna(status):  # Handles pd.NA, np.nan, or None
+        return None  
+    
     if status in ['Active', 'Active*']:
         return 'ACTIVE'
     elif status == 'Complete':
@@ -177,6 +184,11 @@ def update_objective(obj):
         'Not Defined': 'NOT_DEFINED'
     }
     
+
+    # Handle missing or NA values
+    if pd.isna(obj):
+        return 'TBD'
+
     # Apply mapping logic
     if obj in valid_objectives:
         return obj
@@ -189,6 +201,11 @@ def update_objective(obj):
 
 
 def update_treatment_status(stat):
+
+    # Handle missing or NA values                                                                                                                                  
+    if pd.isna(stat):
+        return None
+
     if stat in ['Active', 'Active*']:
         return 'ACTIVE'
     elif stat == 'Complete':
@@ -629,6 +646,11 @@ def update_geom(value):
 
 
 def update_counts(value):
+
+    # Handle missing or NA values                                                                                                                                  
+    if pd.isna(value):
+        return None
+    
     if value == 'Yes':
         return 'YES'
     elif value == 'No':

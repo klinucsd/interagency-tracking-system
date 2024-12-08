@@ -1,4 +1,13 @@
 
+import pandas as pd
+import geopandas as gpd
+
+import logging
+from its_logging.logger_config import logger
+
+
+logger = logging.getLogger('utils.gdf_utils')
+
 
 def verify_gdf_columns(gdf, required_columns, logger):
     """
@@ -46,3 +55,36 @@ def show_columns(logger, gdf, name, sort=True):
         tmp.sort()
     logger.debug(f"{name} columns: {list(tmp)}")
     logger.debug(f"{name} dimension: {gdf.shape}")
+
+
+def fetch_arcgis_feature_service(url, max_records=1000):
+    offset = 0
+    combined_gdf = None
+
+    while True:
+        query_url = f"{url}/query?where=1%3D1&outFields=*&outSR=3310&f=geojson&resultOffset={offset}&resultRecordCount={max_records}"
+        logger.info(f"   loading {offset} - {offset + max_records} records")
+        
+        gdf = gpd.read_file(query_url)
+
+        if gdf.empty:
+            break
+
+        # Convert float columns to integer
+        for column in gdf.select_dtypes(include=['float64']).columns:
+            gdf[column] = gdf[column].fillna(0).astype('int64')
+
+        # Combine with previous results
+        if combined_gdf is None:
+            combined_gdf = gdf
+        else:
+            combined_gdf = pd.concat([combined_gdf, gdf], ignore_index=True)
+
+        offset += max_records
+
+        if len(gdf) < max_records:
+            break
+
+    logger.info(f"   total record count: {combined_gdf.shape[0]}")
+        
+    return combined_gdf
