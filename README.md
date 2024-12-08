@@ -62,7 +62,7 @@ This comprehensive system enables the Task Force to monitor, analyze, and report
 
 ### Enrich Timber Industry Spatial Data
 
-   Call the function `enrich_Timber_Industry` in the file `enrich/enrich_Timber_Industry.py` to specify the following:
+   Call the function `enrich_Timber_Industry` in the file `enrich/enrich_Timber_Industry.py` with the following parameters:
 
    - Your `a_Reference` geodatabase path
    - The timber spatial data geodatabase path
@@ -74,7 +74,7 @@ This comprehensive system enables the Task Force to monitor, analyze, and report
 
 ### Enrich Bureau of Land Management (BLM)'s Fuels Treatments Data
 
-   Call the function `enrich_BLM` in the file `enrich/enrich_BLM.py` to specify the following:
+   Call the function `enrich_BLM` in the file `enrich/enrich_BLM.py` with the following parameters:
 
    - Your `a_Reference` geodatabase path
    - The BLM data geodatabase path
