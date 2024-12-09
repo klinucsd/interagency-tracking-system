@@ -74,9 +74,9 @@ The standardized and enriched datasets are initially stored as activity features
 
 ### Enrich National Park Service (NPS)'s Fuels Treatments Data
 
-   Call the function `enrich_NPS` in the file `enrich/enrich_NPS.py` with the following parameters:
+   Call the function `enrich_NPS_from_gdb` or `enrich_NPS_from_arcgis` in the file `enrich/enrich_NPS.py` with the following parameters:
 
-   - The URL of the ArcGIS Feature Service for National Park Service's fuels treatments dataset 
+   - The URL of the ArcGIS Feature Service for NPS data or the path of the geodatabase and the layer name for NPS data 
    - The `a_Reference` geodatabase path
    - The start and end years
    - The path of the output geodatabase path
