@@ -47,10 +47,8 @@ NPS_COLUMNS = [
     'TreatmentStatus', 'TreatmentNotes', 'DateCurrent', 'PublicDisplay', 'DataAccess',
     'UnitCode', 'UnitName', 'GroupCode', 'GroupName', 'RegionCode', 'CreateDate',
     'CreateUser', 'LastEditDate', 'LastEditor', 'MapMethod', 'MapSource', 'SourceDate',
-    'XYAccuracy', 'Notes', 'EventID', 'GlobalID', 'Shape__Area', 'Shape__Length',
-    'geometry'
+    'XYAccuracy', 'Notes', 'EventID', 'geometry'
 ]
-
 
 
 def dissolve_with_nulls(gdf, dissolve_fields, integer_fields=None):
@@ -104,23 +102,12 @@ def dissolve_with_nulls(gdf, dissolve_fields, integer_fields=None):
     return dissolved
 
 
-def enrich_NPS(nps_feature_layer_url,
+def enrich_NPS(nps,
                a_reference_gdb_path,
                start_year,
                end_year,
                output_gdb_path,
                output_layer_name,):
-
-    logger.info("Load the NPS data into a GeoDataFrame")
-    start = time.time()
-
-    nps = fetch_arcgis_feature_service(nps_feature_layer_url)
-    logger.info(f"   time for loading NPS data: {time.time()-start}")
-    
-    # validate the input data
-    verify_gdf_columns(nps, NPS_COLUMNS, logger)
-    nps = nps.to_crs(3310)
-    show_columns(logger, nps, "nps")
     
     logger.info("Performing Standardization...")
     logger.info("   step 1/11 select after 1995")
@@ -265,24 +252,81 @@ def enrich_NPS(nps_feature_layer_url,
                     output_layer_name,
                     group_name="c_Enriched")
 
+
+
+def enrich_NPS_from_gdb(nps_gdb_path,
+                        nps_layer_name, 
+                        a_reference_gdb_path,
+                        start_year,
+                        end_year,
+                        output_gdb_path,
+                        output_layer_name):
+
+    logger.info("Load the NPS data into a GeoDataFrame")
+    start = time.time()
+
+    nps = gpd.read_file(nps_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nps_layer_name}")
+    logger.info(f"   time for loading {nps_layer_name}: {time.time()-start}")
+    
+    # validate the input data
+    verify_gdf_columns(nps, NPS_COLUMNS, logger)
+    nps = nps.to_crs(3310)
+    show_columns(logger, nps, "nps")
+
+    enrich_NPS(nps, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
+
+
+def enrich_NPS_from_arcgis(nps_feature_layer_url,
+                           a_reference_gdb_path,
+	                   start_year,
+                           end_year,
+                           output_gdb_path,
+                           output_layer_name,):
+    
+    logger.info("Load the NPS data into a GeoDataFrame")
+    start = time.time()
+
+    nps = fetch_arcgis_feature_service(nps_feature_layer_url)
+    logger.info(f"   time for loading NPS data: {time.time()-start}")
+
+    # validate the input data                                                                                                                                      
+    verify_gdf_columns(nps, NPS_COLUMNS, logger)
+    nps = nps.to_crs(3310)
+    show_columns(logger, nps, "nps")
+
+    enrich_NPS(nps, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
+
+    
     
 if __name__ == "__main__":
 
     # Get the current process ID
     process = psutil.Process(os.getpid())
-    
-    nps_arcgis_feature_url = "https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/s_Completed_Perimeters_Past_5FY_View/FeatureServer/0"
+
+    nps_gdb_path = 'New_NPS_2023_20240625_ReisThomasViaUpload_1.gdb'
+    nps_layer_name = 'NPS_2023_20240625_ReisThomasViaUpload2'
+    nps_arcgis_feature_url = None
+    # nps_arcgis_feature_url = "https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/s_Completed_Perimeters_Past_5FY_View/FeatureServer/0"
     a_reference_gdb_path = "a_Reference.gdb"
     start_year, end_year = 2010, 2025
     output_gdb_path = f"/tmp/NPS_{start_year}_{end_year}.gdb"
     output_layer_name = f"NPS_enriched_{datetime.today().strftime('%Y%m%d')}"
 
-    enrich_NPS(nps_arcgis_feature_url,
-               a_reference_gdb_path,
-               start_year,
-               end_year,
-               output_gdb_path,
-               output_layer_name)
+    if nps_arcgis_feature_url:
+        enrich_NPS_from_arcgis(nps_arcgis_feature_url,
+                               a_reference_gdb_path,
+                               start_year,
+                               end_year,
+                               output_gdb_path,
+                               output_layer_name)
+    else:
+        enrich_NPS_from_gdb(nps_gdb_path,
+                            nps_layer_name,
+                            a_reference_gdb_path,
+                            start_year,
+                            end_year,
+                            output_gdb_path,
+                            output_layer_name)
 
     # Get memory usage in bytes, convert to MB
     memory_usage = process.memory_info().rss / 1024 / 1024
