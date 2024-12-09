@@ -13,6 +13,39 @@ The **Wildfire & Landscape Resilience Interagency Tracking System** (Interagency
 
 The standardized and enriched datasets are initially stored as activity features in a flat file format. These features are then transformed into a **Project-Treatment-Activity relational database** structure.
 
+### Enrich Timber Industry Spatial Data
+
+   Call the function `enrich_Timber_Industry` in the file `enrich/enrich_Timber_Industry.py` with the following parameters:
+
+   - The path of the input geodatabase containing timber industry spatial data 
+   - The layer name of the timber industry spatial data in the input geodatabase 
+   - The `a_Reference` geodatabase path
+   - The timber spatial data geodatabase path
+   - The start and end years
+   - The path of the output geodatabase path
+   - The layer name of the output data
+
+   Also you can edit the code under `if __name__ == "__main__"` in the end of the file `enrich/enrich_Timber_Industry.py` and then run the following command:
+
+   	 `python enrich/enrich_Timber_Industry.py`
+
+### Enrich Bureau of Land Management (BLM)'s Fuels Treatments Data
+
+   Call the function `enrich_BLM` in the file `enrich/enrich_BLM.py` with the following parameters:
+
+   - The path of the input geodatabase containing BLM data 
+   - The feature layer name of the BLM data in the input geodatabase 
+   - The `a_Reference` geodatabase path
+   - The start and end years
+   - The path of the output geodatabase path
+   - The layer name of the output data
+
+   Also you can edit the code under `if __name__ == "__main__"` in the end of the file `enrich/enrich_BLM.py` and then run the following command:
+
+   	 `python enrich/enrich_BLM.py`
+
+
+
 ## Technology and Outputs
 The system was developed using **GeoPandas** and **GDAL**, ensuring efficient geospatial data processing. Final outputs are made available through:
 - **Geodatabase Download**
