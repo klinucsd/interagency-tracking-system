@@ -72,6 +72,20 @@ The standardized and enriched datasets are initially stored as activity features
 
    	 `python enrich/enrich_BLM.py`
 
+### Enrich National Park Service (NPS)'s Fuels Treatments Data
+
+   Call the function `enrich_NPS` in the file `enrich/enrich_NPS.py` with the following parameters:
+
+   - The URL of the ArcGIS Feature Service for National Park Service's fuels treatments dataset 
+   - The `a_Reference` geodatabase path
+   - The start and end years
+   - The path of the output geodatabase path
+   - The layer name of the output data
+
+   Also you can edit the code under `if __name__ == "__main__"` in the end of the file `enrich/enrich_BLM.py` and then run the following command:
+
+   	 `python enrich/enrich_NPS.py`
+
 
 
 ## Technology and Outputs
