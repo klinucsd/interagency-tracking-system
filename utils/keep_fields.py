@@ -5,7 +5,7 @@ from its_logging.logger_config import logger
 logger = logging.getLogger('utils.keep_fields')
 
 
-def keep_fields(Keep_table):
+def keep_fields(keep_table):
     
     # List of fields to keep
     fields_to_keep = [
@@ -34,10 +34,10 @@ def keep_fields(Keep_table):
     ]
     
     # Make sure to include geometry column if it exists
-    if 'geometry' in Keep_table.columns:
+    if 'geometry' in keep_table.columns:
         fields_to_keep.append('geometry')
     
     # Keep only the specified fields
-    Keep_table = Keep_table[fields_to_keep]
+    keep_table = keep_table[fields_to_keep]
     
-    return Keep_table
+    return keep_table

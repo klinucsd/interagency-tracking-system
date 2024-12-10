@@ -92,6 +92,10 @@ def update_project_status_field(status):
 
 
 def update_primary_funding_source(org):
+
+    if pd.isna(org):  # Handles pd.NA, np.nan, or None
+        return None  
+    
     if org == 'Greenhouse Gas Reduction Fund':
         return 'GHG_REDUC_FUND_GGRF'
     elif org == 'Proposition 68 Bond Funds':
@@ -510,6 +514,10 @@ def update_activity_cat(Cat):
 
     
 def update_broad_vegetation_type(VEG):
+
+    if pd.isna(VEG):  # Handles pd.NA, np.nan, or None
+        return np.nan  
+    
     if VEG == 'Agriculture':
         return 'AGRICULTURE'
     elif VEG == 'Barren/Other' or VEG == 'Sparse':
