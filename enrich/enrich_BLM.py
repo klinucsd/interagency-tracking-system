@@ -43,10 +43,9 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 BLM_COLUMNS = [
     'UNIQUE_ID', 'SYS_CD', 'SYS_TRTMNT_ID', 'TRTMNT_NM', 'TRTMNT_TYPE_CD',
     'TRTMNT_SUBTYPE', 'TRTMNT_START_DT', 'TRTMNT_END_DT', 'TRTMNT_COMMENTS',
-    'BLM_ACRES', 'GIS_ACRES', 'ADMIN_ST', 'Tmp_Text_ca', 'Tmp_Long_ca',
-    'Tmp_Float_ca', 'Tmp_Date_ca', 'Comments_ca', 'CREATE_DATE', 'CREATE_BY',
-    'MODIFY_DATE', 'MODIFY_BY', 'SHAPE_Length', 'SHAPE_Area', 'OBJECTID',
-    'geometry'
+    'BLM_ACRES', 'GIS_ACRES', 'ADMIN_ST', 'OBJECTID', 'geometry',
+    # 'Tmp_Text_ca', 'Tmp_Long_ca', 'Tmp_Float_ca', 'Tmp_Date_ca', 'Comments_ca',
+    # 'CREATE_DATE', 'CREATE_BY', 'MODIFY_DATE', 'MODIFY_BY', 'SHAPE_Length', 'SHAPE_Area',
 ]
 
 
@@ -102,13 +101,32 @@ def enrich_BLM(blm_gdb_path,
     logger.debug(standardized_blm[["PROJECTID_USER", "PROJECT_NAME", "ACTIVITY_NAME"]])
     
     logger.info("   step 5/15 Calculating Start and End Date...")
-    standardized_blm["ACTIVITY_START"] = standardized_blm["TRTMNT_START_DT"].apply(
-        lambda x: datetime.strptime(x + '00', "%Y/%m/%d %H:%M:%S%z") if pd.notnull(x) else None
-    )
     
-    standardized_blm["ACTIVITY_END"] = standardized_blm["TRTMNT_END_DT"].apply(
-        lambda x: datetime.strptime(x + '00', "%Y/%m/%d %H:%M:%S%z") if pd.notnull(x) else None
-    )
+    # Define a function to safely convert dates
+    def safe_date_convert(x):
+        if pd.isna(x):
+            return None
+        try:
+            parts = str(x).split("/")
+            if len(parts) >= 1:
+                year = parts[0]
+                if year.startswith('02') and len(year)==4:
+                    year = '20' + year[2:4]
+                    x = year + '/' + '/'.join(parts[1:])
+            
+            if '/' in str(x):
+                # For dates like "2019/10/01 00:00:00+00"
+                return pd.to_datetime(x, format='%Y/%m/%d %H:%M:%S%z')
+            else:
+                # For dates like "2020-09-04 00:00:00+00:00"
+                return pd.to_datetime(x, format='%Y-%m-%d %H:%M:%S%z')
+        except:
+            logger.error(f"      Problem converting date: {x}")
+            exit()
+
+    # Apply the conversion
+    standardized_blm["ACTIVITY_START"] = standardized_blm["TRTMNT_START_DT"].apply(safe_date_convert)
+    standardized_blm["ACTIVITY_END"] = standardized_blm["TRTMNT_END_DT"].apply(safe_date_convert)
 
     logger.debug("-"*70)
     logger.debug(standardized_blm[["ACTIVITY_START", "ACTIVITY_END"]])
@@ -258,8 +276,10 @@ def enrich_BLM(blm_gdb_path,
 if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
-    
-    blm_input_gdb_path = "/home/klin/misc/test_its/BLM.gdb"
+
+    blm_input_gdb_path = "BLM_2010_2023_fromReisThomasViaUpload.gdb"
+    blm_input_layer_name = "BLM_2010_2023_fromReisThomasViaUpload"
+    blm_input_gdb_path = "b_Originals/BLM.gdb"
     blm_input_layer_name = "BLM_20230813"
     a_reference_gdb_path = "a_Reference.gdb"
     start_year, end_year = 2010, 2025
