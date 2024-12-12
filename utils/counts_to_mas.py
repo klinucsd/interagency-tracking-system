@@ -21,7 +21,7 @@ def counts_to_mas(gdf, start_year, end_year):
     GeoDataFrame: Processed geodataframe with COUNTS_TO_MAS field updated
     """
     
-    logger.info("            Calculating Counts to MAS")    
+    logger.info("         Calculating Counts to MAS")    
     logger.info("            counts step 1/8: set to 'NO'")
     gdf['COUNTS_TO_MAS'] = 'NO'
  

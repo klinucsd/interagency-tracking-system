@@ -152,10 +152,11 @@ def enrich_NPS(nps,
         lambda row: row['PrjID'] if pd.notna(row['PrjID']) else row['TreatmentID'],
         axis=1
     )
+
     
     # Static field assignments
-    standardized_nps['AGENCY'] = 'DOI'
-    standardized_nps['ORG_ADMIN_p'] = 'NPS'
+    standardized_nps['AGENCY'] = 'NPS'                                       # Carl: 'DOI'
+    standardized_nps['ORG_ADMIN_p'] = 'NPS'                                  # The current code: standardized_nps['UnitName']          
     standardized_nps['PROJECT_CONTACT'] = 'Kent van Wagtendonk'
     standardized_nps['PROJECT_EMAIL'] = 'Kent_Van_Wagtendonk@nps.gov'
     standardized_nps['PRIMARY_FUNDING_SOURCE'] = 'NPS'
@@ -303,7 +304,7 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    nps_gdb_path = 'New_NPS_2023_20240625_ReisThomasViaUpload_1.gdb'
+    nps_gdb_path = 'b_Originals/New_NPS_2023_20240625_ReisThomasViaUpload_1.gdb'
     nps_layer_name = 'NPS_2023_20240625_ReisThomasViaUpload2'
     nps_arcgis_feature_url = None
     # nps_arcgis_feature_url = "https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/s_Completed_Perimeters_Past_5FY_View/FeatureServer/0"
