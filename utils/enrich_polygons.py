@@ -38,7 +38,8 @@ def summarize_within(in_polygons, in_sum_features, group_field='WHR13NAME'):
     in_polygons['Join_ID'] = in_polygons.index
     
     # Perform spatial join
-    joined = gpd.sjoin(in_sum_features, in_polygons, how='right', predicate='intersects')
+    # joined = gpd.sjoin(in_sum_features, in_polygons, how='right', predicate='intersects')
+    joined = gpd.overlay(in_polygons, in_sum_features, how='intersection')
     
     # Calculate area in acres
     # CRS 3310 uses meters, so convert square meters to acres
