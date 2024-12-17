@@ -4,6 +4,9 @@ import time
 import logging
 import pandas as pd
 import geopandas as gpd
+import numpy as np
+
+from multiprocessing import Pool
 from datetime import datetime
 
 from its_logging.logger_config import logger
@@ -14,6 +17,102 @@ from utils.crosswalk import crosswalk
 
 
 logger = logging.getLogger('utils.enrich_polygons')
+
+
+# Global variables
+in_polygons = None
+in_sum_features_filtered = None
+
+def init_globals(polygons_df, features_df):
+    """Initialize global variables for multiprocessing"""
+    global in_polygons, in_sum_features_filtered
+    in_polygons = polygons_df
+    in_sum_features_filtered = features_df
+
+def process_group(idx):
+    """Process a single group of joined features"""
+    global in_polygons, in_sum_features_filtered
+    
+    group = joined[joined['Join_ID'] == idx]
+    intersection_areas = []
+    total_area = 0
+    polygon_count = 0
+    
+    for index, row in group.iterrows():
+        treatment_geom = row['geometry']
+        matching_features = in_sum_features_filtered.loc[in_sum_features_filtered['Id'] == row['Id'], 'geometry']
+        
+        if matching_features.empty:
+            continue
+            
+        veg_type_geom = in_sum_features_filtered.loc[in_sum_features_filtered['Id'] == row['Id'], 'geometry'].iloc[0]
+        intersection_geom = treatment_geom.intersection(veg_type_geom)
+        area_acres = intersection_geom.area * 0.000247105
+        
+        total_area += area_acres
+        polygon_count += 1
+        
+        intersection_areas.append({
+            'WHR13NAME': row['WHR13NAME'],
+            'area_acres': area_acres
+        })
+    
+    if intersection_areas:
+        veg_areas_df = pd.DataFrame(intersection_areas)
+        veg_summary = veg_areas_df.groupby('WHR13NAME')['area_acres'].sum().reset_index()
+        
+        if not veg_summary.empty:
+            dominant_veg = veg_summary.loc[veg_summary['area_acres'].idxmax(), 'WHR13NAME']
+            return idx, {
+                'dominant_veg': dominant_veg,
+                'sum_Area_ACRES': total_area,
+                'Polygon_Count': int(polygon_count)  # Explicitly cast to integer
+            }
+    
+    return idx, {
+        'dominant_veg': None,
+        'sum_Area_ACRES': total_area,
+        'Polygon_Count': int(polygon_count)  # Explicitly cast to integer
+    }
+
+def process_spatial_join_parallel(in_polygons_df, in_sum_features_filtered_df, n_processes=None):
+    """Main function to process spatial join in parallel"""
+    global joined
+    
+    # Perform the spatial join
+    logger.info(f"            enrich step 4/32 joining with board veg types")
+    joined = gpd.sjoin(in_sum_features_filtered_df, in_polygons_df, how='right', predicate='intersects')
+    logger.info(f"               joined records: {joined.shape[0]}")
+    show_columns(logger, joined, "joined")
+    
+    # Get unique Join_IDs
+    unique_ids = joined['Join_ID'].unique()
+
+    # Initialize pool with globals
+    logger.info(f"            enrich step 5/32 concurrent calculate veg type for each polygon")
+    with Pool(processes=n_processes, 
+             initializer=init_globals, 
+             initargs=(in_polygons_df, in_sum_features_filtered_df)) as pool:
+        
+        # Process groups in parallel
+        results = pool.map(process_group, unique_ids)
+    
+    # Convert results to dictionary
+    results_dict = dict(results)
+    
+    # Update in_polygons with results
+    logger.info(f"            enrich step 6/32 assign veg type for each polygon")
+    for idx, data in results_dict.items():
+        mask = in_polygons_df['Join_ID'] == idx
+        in_polygons_df.loc[mask, 'BROAD_VEGETATION_TYPE'] = data['dominant_veg']
+        in_polygons_df.loc[mask, 'sum_Area_ACRES'] = data['sum_Area_ACRES']
+        in_polygons_df.loc[mask, 'Polygon_Count'] = data['Polygon_Count']
+    
+    # Convert Polygon_Count column to integer type
+    in_polygons_df['Polygon_Count'] = in_polygons_df['Polygon_Count'].astype(int)
+    
+    return in_polygons_df
+
 
 
 def summarize_within(in_polygons, in_sum_features, group_field='WHR13NAME'):
@@ -38,49 +137,29 @@ def summarize_within(in_polygons, in_sum_features, group_field='WHR13NAME'):
     in_polygons['Join_ID'] = in_polygons.index
     
     # Perform spatial join
-    # joined = gpd.sjoin(in_sum_features, in_polygons, how='right', predicate='intersects')
-    joined = gpd.overlay(in_polygons, in_sum_features, how='intersection')
-    
-    # Calculate area in acres
-    # CRS 3310 uses meters, so convert square meters to acres
-    joined['area_acres'] = joined.geometry.area * 0.000247105
-    
-    # Add a count column
-    joined['count'] = 1
-    
-    # Summarize by input polygons
-    summary = joined.groupby(['Join_ID', group_field]).agg({
-        'area_acres': 'sum',
-        'count': 'sum'
-    }).reset_index()
-    
-    # Rename columns to match expected output
-    summary.columns = ['Join_ID', group_field, 'sum_Area_ACRES', 'Polygon_Count']
-    
-    # Create the output feature class
-    result = in_polygons.copy()
-    result['sum_Area_ACRES'] = 0  # Initialize area field
-    result['Polygon_Count'] = 0   # Initialize count field
-    
-    # Update areas and counts in the result
-    for idx, group in summary.groupby('Join_ID'):
-        result.loc[idx, 'sum_Area_ACRES'] = group['sum_Area_ACRES'].sum()
-        result.loc[idx, 'Polygon_Count'] = group['Polygon_Count'].sum()
-    
-    # Round the acre values to 2 decimal places for consistency with ArcGIS
-    result['sum_Area_ACRES'] = result['sum_Area_ACRES']
-    
-    # Create the group table with specified columns
-    group_table = summary.copy()
-    
-    # Round the acre values in group table
-    group_table['sum_Area_ACRES'] = group_table['sum_Area_ACRES']
-    
-    # Ensure columns are in the correct order
-    group_table = group_table[['Join_ID', 'WHR13NAME', 'sum_Area_ACRES', 'Polygon_Count']]
-    
-    return result, group_table
 
+    # Create a bounding box of `in_polygons`
+    bbox = in_polygons.total_bounds  # [minx, miny, maxx, maxy]
+
+    logger.info(f"            enrich step 2/32 filter board veg types using the bounding box")
+    # Filter `in_sum_features` using the bounding box
+    in_sum_features_filtered = in_sum_features.cx[
+        bbox[0]:bbox[2], bbox[1]:bbox[3]
+    ]
+
+    logger.info(f"               original board veg type records: {in_sum_features.shape[0]} ")
+    logger.info(f"               filtered board veg type records: {in_sum_features_filtered.shape[0]} ")
+    logger.info(f"               records for summary: {in_polygons.shape[0]}")
+    
+    logger.info(f"            enrich step 3/32 determining board veg types")
+    in_polygons_updated = process_spatial_join_parallel(in_polygons, in_sum_features_filtered)
+    logger.info(f"               board veg types are done")
+    show_columns(logger, in_polygons_updated, "in_polygons_updated")
+    logger.debug('-'*70)
+    logger.debug(in_polygons_updated[['Join_ID', 'BROAD_VEGETATION_TYPE', 'sum_Area_ACRES', 'Polygon_Count']])
+
+    return in_polygons_updated
+    
 
 def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
 
@@ -111,91 +190,41 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
     logger.debug(f"{'-'*70}")
     logger.debug(f"veg_layer: {veg_layer.shape}  :  {list(veg_layer.columns)}")
     
-    start = time.time()    
-    veg_sum_gdf, veg_group_df = summarize_within(enrich_in, veg_layer)
-    logger.info(f"                  time for summarizing: {time.time()-start}")
-
-    logger.debug(f"{'-'*70}")
-    logger.debug(f"veg_sum_gdf:  {veg_sum_gdf.shape}  :  {list(veg_sum_gdf.columns)}")
-
-    logger.debug(f"{'-'*70}")
-    logger.debug(f"veg_group_df: {veg_group_df.shape}  :  {list(veg_group_df.columns)}")
-    logger.debug(f"veg_group_df:\n {veg_group_df.head()}")
+    start = time.time()
     
-    logger.info(f"            enrich step 2/32 summarize attributes")
-    veg_max_sum_df = veg_group_df.groupby('Join_ID')['sum_Area_ACRES'].max().reset_index(name='MAX_Sum_Area_ACRES')
+    veg_enriched = summarize_within(enrich_in, veg_layer)
+    logger.info(f"               time for summarizing veg types: {time.time()-start}")
 
     logger.debug(f"{'-'*70}")
-    logger.debug(f"veg_max_sum_df: {veg_max_sum_df.shape}  :  {list(veg_max_sum_df.columns)}")
-    logger.debug(f"veg_max_sum_df:\n {veg_max_sum_df.head()}")
-    
-    logger.info(f"            enrich step 3/32 join sum_acres and max_sum_acres")
-    veg_sum_max_joined_df = veg_max_sum_df.merge(
-        veg_group_df,
-        left_on=['Join_ID', 'MAX_Sum_Area_ACRES'],
-        right_on=['Join_ID', 'sum_Area_ACRES'],
-        how='left'
-    )
-
-    logger.debug(f"{'-'*70}")
-    logger.debug(f"veg_sum_max_joined_df: {veg_sum_max_joined_df.shape}  :  {list(veg_sum_max_joined_df.columns)}")
-    logger.debug(f"veg_sum_max_joined_df:\n {veg_sum_max_joined_df}")
-
-    logger.info("            enrich step 4/32 decide broad vegetation types for identical max sum")
-    veg_sum_max_final_df = veg_sum_max_joined_df.drop_duplicates(
-        # subset=['Join_ID', 'MAX_Sum_Area_ACRES', 'WHR13NAME']
-        subset=['Join_ID', 'MAX_Sum_Area_ACRES']
-    )
-
-    logger.info("            enrich step 5/32 keep Join_ID and WHR13NAME only")
-    veg_sum_max_final_df = veg_sum_max_final_df[['Join_ID', 'WHR13NAME']]
-    
-    logger.debug(f"{'-'*70}")
-    logger.debug(f"veg_sum_max_final_df: {veg_sum_max_final_df.shape}  :  {list(veg_sum_max_final_df.columns)}")
-    logger.debug(f"veg_sum_max_final_df:\n {veg_sum_max_final_df}")
-
-    logger.info("            enrich step 6/32 append broad vegetation types to veg_sum")    
-    veg_sum_with_max_gdf = veg_sum_gdf.merge(
-        veg_sum_max_final_df,
-        on='Join_ID',
-        how='left'
-    )
-
-    logger.debug(f"{'-'*70}")
-    logger.debug(f"veg_sum_with_max_gdf: {veg_sum_with_max_gdf.shape}  :  {list(veg_sum_with_max_gdf.columns)}")
-    logger.debug(f"veg_sum_with_max_gdf:\n {veg_sum_with_max_gdf}")
+    logger.debug(f"veg_enriched:  {veg_enriched.shape}  :  {list(veg_enriched.columns)}")
 
     logger.info("            enrich step 7/32 select records where BROAD_VEGETATION_TYPE is not null")    
-    mask_not_null = veg_sum_with_max_gdf['BROAD_VEGETATION_TYPE'].notna()
+    mask_not_null = veg_enriched['BROAD_VEGETATION_TYPE'].notna()
 
     logger.info("            enrich step 8/32 set BVT_USERD of the selected records to YES")    
-    veg_sum_with_max_gdf.loc[mask_not_null, 'BVT_USERD'] = 'YES'
+    veg_enriched.loc[mask_not_null, 'BVT_USERD'] = 'YES'
 
     logger.info("            enrich step 9/32 select records where BROAD_VEGETATION_TYPE is null")    
-    mask_null = veg_sum_with_max_gdf['BROAD_VEGETATION_TYPE'].isna()
-
-    logger.info("            enrich step 10/32 update BROAD_VEGETATION_TYPE with WHR13NAME")    
-    veg_sum_with_max_gdf.loc[mask_null, 'BROAD_VEGETATION_TYPE'] = veg_sum_with_max_gdf.loc[mask_null, 'WHR13NAME']
+    mask_null = veg_enriched['BROAD_VEGETATION_TYPE'].isna()
 
     logger.info("            enrich step 11/32 set BVT_USERD of the selected records to NO")
-    veg_sum_with_max_gdf.loc[mask_null, 'BVT_USERD'] = 'NO'
+    veg_enriched.loc[mask_null, 'BVT_USERD'] = 'NO'
 
     logger.debug(f"{'-'*70}")
-    logger.debug(f"veg_sum_with_max_gdf:\n {veg_sum_with_max_gdf[['Join_ID', 'BROAD_VEGETATION_TYPE', 'BVT_USERD']]}")
+    logger.debug(f"veg_enriched:\n {veg_enriched[['Join_ID', 'BROAD_VEGETATION_TYPE', 'BVT_USERD']]}")
 
     logger.info("            enrich step 12/32 keeping only the necessary columns")
-    common_columns = set(veg_sum_with_max_gdf.columns).intersection(set(veg_group_df.columns))
-    veg_sum_with_max_gdf = veg_sum_with_max_gdf.drop(columns=list(common_columns))
+    veg_enriched = veg_enriched.drop(columns=['Join_ID', 'sum_Area_ACRES', 'Polygon_Count'])
     
-    logger.debug(f"{'='*70}")
-    logger.debug(f"veg_sum_with_max_gdf: {veg_sum_with_max_gdf.shape}  :  {list(veg_sum_with_max_gdf.columns)}")
-    
+    logger.debug(f"{'-'*70}")
+    logger.debug(f"veg_enriched: {veg_enriched.shape}  :  {veg_enriched.columns.to_list()}")
+ 
     del veg_layer
 
     # --------------------------------------------------
     logger.info(f"         Calculating WUI...")
 
-    wui_input_gdf = veg_sum_with_max_gdf 
+    wui_input_gdf = veg_enriched
 
     # Load WUL as GeoDataFrame
     start = time.time()
