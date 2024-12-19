@@ -1,8 +1,11 @@
 
+import hashlib
+import logging
+
 import pandas as pd
 import geopandas as gpd
+import shapely
 
-import logging
 from its_logging.logger_config import logger
 
 
@@ -88,3 +91,26 @@ def fetch_arcgis_feature_service(url, max_records=1000):
     logger.info(f"   total record count: {combined_gdf.shape[0]}")
         
     return combined_gdf
+
+
+def hash_geodataframe(gdf):
+    # Make a copy of the GeoDataFrame to avoid modifying the original
+    temp_gdf = gdf.copy()
+
+    # Sort the GeoDataFrame for consistent hashing
+    temp_gdf = temp_gdf.sort_index(axis=0).sort_index(axis=1)
+
+    # Temporarily create a WKT column for hashing purposes (without modifying original 'geometry')
+    temp_gdf['geometry_wkt'] = temp_gdf['geometry'].apply(
+        lambda geom: geom.wkt if isinstance(geom, shapely.geometry.base.BaseGeometry) else None
+    )
+
+    # Convert the DataFrame to CSV string for hashing, excluding original 'geometry' column
+    df_string = temp_gdf.drop(columns=['geometry']).to_csv(index=False)
+
+    # Hash the CSV string
+    hash_object = hashlib.sha256(df_string.encode('utf-8'))
+
+    return hash_object.hexdigest()
+
+

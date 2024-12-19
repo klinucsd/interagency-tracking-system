@@ -8,13 +8,16 @@ import numpy as np
 
 from multiprocessing import Pool
 from datetime import datetime
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from multiprocessing import Pool
 
 from its_logging.logger_config import logger
-from utils.gdf_utils import show_columns
+from utils.gdf_utils import show_columns, hash_geodataframe
 from utils.keep_fields import keep_fields
 from utils.year import calculate_fiscal_years
 from utils.crosswalk import crosswalk
 
+from utils.concurrent_join import split_gdf
 
 logger = logging.getLogger('utils.enrich_polygons')
 
@@ -84,7 +87,7 @@ def process_spatial_join_parallel(in_polygons_df, in_sum_features_filtered_df, n
     joined = gpd.sjoin(in_sum_features_filtered_df, in_polygons_df, how='right', predicate='intersects')
     logger.info(f"               joined records: {joined.shape[0]}")
     show_columns(logger, joined, "joined")
-    
+
     # Get unique Join_IDs
     unique_ids = joined['Join_ID'].unique()
 
@@ -110,9 +113,8 @@ def process_spatial_join_parallel(in_polygons_df, in_sum_features_filtered_df, n
     
     # Convert Polygon_Count column to integer type
     in_polygons_df['Polygon_Count'] = in_polygons_df['Polygon_Count'].astype(int)
-    
-    return in_polygons_df
 
+    return in_polygons_df
 
 
 def summarize_within(in_polygons, in_sum_features, group_field='WHR13NAME'):
@@ -153,13 +155,13 @@ def summarize_within(in_polygons, in_sum_features, group_field='WHR13NAME'):
     
     logger.info(f"            enrich step 3/32 determining board veg types")
     in_polygons_updated = process_spatial_join_parallel(in_polygons, in_sum_features_filtered)
-    logger.info(f"               board veg types are done")
+    logger.info(f"               assigning vegetation types is completed")
     show_columns(logger, in_polygons_updated, "in_polygons_updated")
     logger.debug('-'*70)
     logger.debug(in_polygons_updated[['Join_ID', 'BROAD_VEGETATION_TYPE', 'sum_Area_ACRES', 'Polygon_Count']])
 
     return in_polygons_updated
-    
+
 
 def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
 
@@ -189,10 +191,33 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
 
     logger.debug(f"{'-'*70}")
     logger.debug(f"veg_layer: {veg_layer.shape}  :  {list(veg_layer.columns)}")
-    
+        
     start = time.time()
-    
-    veg_enriched = summarize_within(enrich_in, veg_layer)
+    if enrich_in.shape[0] > 20000:
+        logger.info(f"               summarizing veg types with {enrich_in.shape[0]} records may take {int(enrich_in.shape[0]/10000 * 4)} minutes")
+        chunks = split_gdf(enrich_in, 10000)
+        logger.info(f"               split into {len(chunks)} chunks with 10000 records")
+        enriched_list = []
+        for index, chunk in enumerate(chunks):
+            logger.info(f"            ================ processing chuck {index+1} ================")
+            hash = hash_geodataframe(chunk)
+            if os.path.exists(f"cache/{hash}.parquet"):
+                enriched_chunk = gpd.read_parquet(f"cache/{hash}.parquet")
+                logger.info(f"            loaded enriched chunks from the cache")
+            else:
+                enriched_chunk = summarize_within(chunk, veg_layer)
+                enriched_chunk.to_parquet(f"cache/{hash}.parquet")
+                logger.info(f"               saved enriched chunks into the cache")
+            enriched_list.append(enriched_chunk)
+
+        # Concatenate the list into a single GeoDataFrame
+        veg_enriched = gpd.GeoDataFrame(pd.concat(enriched_list, ignore_index=True))
+
+        # Ensure the geometry column is preserved as GeoSeries
+        veg_enriched.set_geometry('geometry', inplace=True)
+
+    else:
+        veg_enriched = summarize_within(enrich_in, veg_layer)
     logger.info(f"               time for summarizing veg types: {time.time()-start}")
 
     logger.debug(f"{'-'*70}")

@@ -195,7 +195,7 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    ti_input_gdb_path = "FFSC_MOU_2023_20240627_RebeccaFerkovichViaEmail.gdb"
+    ti_input_gdb_path = "b_Originals/FFSC_MOU_2023_20240627_RebeccaFerkovichViaEmail.gdb"
     ti_input_layer_name = "FFSC_MOU_IndustryOnly_Pol"
     a_reference_gdb_path = "a_Reference.gdb"
     start_year, end_year = 2021, 2023
