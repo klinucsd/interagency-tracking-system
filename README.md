@@ -175,7 +175,7 @@ The system enriches incoming data with the following attributes:
    - Enriched attributes
 
 2. **Web Services**
-   - Web Map Service (WMS) for visualization
+   - ArcGIS Feature Services for accessing data
    - Interactive dashboard for data exploration
 
 ## Reporting
