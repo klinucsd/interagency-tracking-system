@@ -1,109 +1,154 @@
 # Wildfire & Landscape Resilience Interagency Tracking System
 
-The **Wildfire & Landscape Resilience Interagency Tracking System** (Interagency Tracking System), developed for the California Wildfire and Forest Resilience Task Force, consolidates data on wildfire and landscape resilience management activities from various federal, state, and other sources.
+## Overview
 
+The **Wildfire & Landscape Resilience Interagency Tracking System** is a comprehensive data management solution developed for the California Wildfire and Forest Resilience Task Force. This system consolidates and standardizes wildfire and landscape resilience management activities data from federal, state, and other sources.
 
-## Installation Instructions
+## Features
 
-### Prerequisites
+- Data standardization according to Task Force schema (v5.2, August 2023)
+- Automated data enrichment with reference attributes
+- Project-Treatment-Activity relational database structure
+- Multiple data processing modules for different agencies
+- Comprehensive reporting capabilities
+- Multiple output formats including geodatabase and web services
 
-1. **Install GDAL**  
-   Ensure that GDAL is installed on your system. You may need to refer to your system's package manager or GDAL's [official installation guide](https://gdal.org/download.html) for instructions.
+## Prerequisites
 
-2. **Install Docker**  
-   Make sure Docker is installed and running on your machine. Follow the instructions on the [Docker website](https://www.docker.com/) if Docker is not already installed.
+- GDAL installation ([Official Installation Guide](https://gdal.org/download.html))
+- Docker installation ([Docker Website](https://www.docker.com/))
+- Python 3.x
 
-### Setup
+## Installation
 
-1. **Install Required Libraries**  
+1. Clone the repository:
+   ```bash
+   git clone [repository-url]
+   cd [repository-name]
+   ```
 
-   Use the `requirements.txt` file to install the necessary Python libraries:
-   
-   `pip install -r requirements.txt`
+2. Install required Python packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-3. **Pull the GDAL Docker Image**
+3. Pull the GDAL Docker image:
+   ```bash
+   docker pull dbcawa/gdal-image
+   ```
 
-   Download the Docker image that includes the FileGDB Driver:
+## Data Processing Modules
 
-   `docker pull dbcawa/gdal-image`
+### Timber Industry Data Enrichment
 
-   The downloaded Docker image contains the FileGDB Driver needed for geodatabase operations.
+```python
+from enrich.enrich_Timber_Industry import enrich_Timber_Industry
 
+enrich_Timber_Industry(
+    input_gdb_path,      # Input geodatabase path
+    input_layer_name,    # Input layer name
+    reference_gdb_path,  # Reference geodatabase path
+    timber_gdb_path,     # Timber spatial data path
+    start_year,          # Start year for processing
+    end_year,           # End year for processing
+    output_gdb_path,    # Output geodatabase path
+    output_layer_name   # Output layer name
+)
+```
 
-## Data Standardization and Enrichment Process
-1. **Standardization**: Incoming data are standardized to align with the Task Force schema (version 5.2, August 2023).
-2. **Enrichment**: Using reference datasets, the imported data are enhanced with additional attributes such as:
-   - Vegetation cover type
-   - Land ownership type
-   - County
-   - Task Force region
-   - Wildland-Urban Interface (WUI) classification
+Quick execution:
+```bash
+python enrich/enrich_Timber_Industry.py
+```
 
-The standardized and enriched datasets are initially stored as activity features in a flat file format. These features are then transformed into a **Project-Treatment-Activity relational database** structure.
+### BLM Fuels Treatments Enrichment
 
-### Enrich Timber Industry Spatial Data
+```python
+from enrich.enrich_BLM import enrich_BLM
 
-   Call the function `enrich_Timber_Industry` in the file `enrich/enrich_Timber_Industry.py` with the following parameters:
+enrich_BLM(
+    input_gdb_path,      # Input geodatabase path
+    input_layer_name,    # Input layer name
+    reference_gdb_path,  # Reference geodatabase path
+    start_year,          # Start year for processing
+    end_year,           # End year for processing
+    output_gdb_path,    # Output geodatabase path
+    output_layer_name   # Output layer name
+)
+```
 
-   - The path of the input geodatabase containing timber industry spatial data 
-   - The layer name of the timber industry spatial data in the input geodatabase 
-   - The `a_Reference` geodatabase path
-   - The timber spatial data geodatabase path
-   - The start and end years
-   - The path of the output geodatabase path
-   - The layer name of the output data
+Quick execution:
+```bash
+python enrich/enrich_BLM.py
+```
 
-   Also you can edit the code under `if __name__ == "__main__"` in the end of the file `enrich/enrich_Timber_Industry.py` and then run the following command:
+### NPS Fuels Treatments Enrichment
 
-   	 `python enrich/enrich_Timber_Industry.py`
+```python
+from enrich.enrich_NPS import enrich_NPS_from_gdb, enrich_NPS_from_arcgis
 
-### Enrich Bureau of Land Management (BLM)'s Fuels Treatments Data
+# For geodatabase input
+enrich_NPS_from_gdb(
+    input_gdb_path,      # Input geodatabase path
+    input_layer_name,    # Input layer name
+    reference_gdb_path,  # Reference geodatabase path
+    start_year,          # Start year for processing
+    end_year,           # End year for processing
+    output_gdb_path,    # Output geodatabase path
+    output_layer_name   # Output layer name
+)
 
-   Call the function `enrich_BLM` in the file `enrich/enrich_BLM.py` with the following parameters:
+# For ArcGIS Feature Service input
+enrich_NPS_from_arcgis(
+    feature_service_url, # ArcGIS Feature Service URL
+    reference_gdb_path,  # Reference geodatabase path
+    start_year,          # Start year for processing
+    end_year,           # End year for processing
+    output_gdb_path,    # Output geodatabase path
+    output_layer_name   # Output layer name
+)
+```
 
-   - The path of the input geodatabase containing BLM data 
-   - The feature layer name of the BLM data in the input geodatabase 
-   - The `a_Reference` geodatabase path
-   - The start and end years
-   - The path of the output geodatabase path
-   - The layer name of the output data
+Quick execution:
+```bash
+python enrich/enrich_NPS.py
+```
 
-   Also you can edit the code under `if __name__ == "__main__"` in the end of the file `enrich/enrich_BLM.py` and then run the following command:
+## Data Enrichment Process
 
-   	 `python enrich/enrich_BLM.py`
+The system enriches incoming data with the following attributes:
+- Vegetation cover type
+- Land ownership type
+- County information
+- Task Force region
+- Wildland-Urban Interface (WUI) classification
 
+## Output Formats
 
-### Enrich National Park Service (NPS)'s Fuels Treatments Data
+1. **Geodatabase Download**
+   - Complete dataset in ESRI Geodatabase format
+   - Standardized schema
+   - Enriched attributes
 
-   Call the function `enrich_NPS_from_gdb` or `enrich_NPS_from_arcgis` in the file `enrich/enrich_NPS.py` with the following parameters:
+2. **Web Services**
+   - Web Map Service (WMS) for visualization
+   - Interactive dashboard for data exploration
 
-   - The URL of the ArcGIS Feature Service for NPS data or the path of the geodatabase and the layer name for NPS data 
-   - The `a_Reference` geodatabase path
-   - The start and end years
-   - The path of the output geodatabase path
-   - The layer name of the output data
+## Reporting
 
-   Also you can edit the code under `if __name__ == "__main__"` in the end of the file `enrich/enrich_BLM.py` and then run the following command:
+### Activities Report
+- Quantifies effort levels (acres) by agency
+- Accounts for multi-year overlapping activities
+- Provides detailed activity breakdowns
 
-   	 `python enrich/enrich_NPS.py`
+### Footprints Report
+- Calculates total treated geographic area
+- Eliminates overlapping treatments
+- Tracks sequential treatment patterns
 
+## Technology Stack
 
-## Technology and Outputs
-The system was developed using **GeoPandas** and **GDAL**, ensuring efficient geospatial data processing. Final outputs are made available through:
-- **Geodatabase Download**
-- **Web Map Service**
-- **Interactive Dashboard**
-
-## Reporting Capabilities
-The Interagency Tracking System produces two primary reports:
-1. **Activities Report**:
-   - Summarizes the level of effort (in acres) for activities performed by reporting agencies.
-   - Accounts for overlapping activities, particularly those occurring across different years.
-
-2. **Footprints Report**:
-   - Eliminates overlaps by identifying the total geographic area (in acres) treated within a specific timeframe.
-   - Designed to capture distinct land areas affected by treatments, such as sequential thinning and prescribed burning.
-
-This comprehensive system enables the Task Force to monitor, analyze, and report on wildfire and landscape resilience efforts effectively.
-
-
+- **GeoPandas**: Spatial data processing
+- **GDAL**: Geospatial data manipulation
+- **Docker**: Containerization and deployment
+- **Python**: Core programming language
