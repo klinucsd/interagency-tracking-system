@@ -116,20 +116,19 @@ python enrich/enrich_NPS.py
 
 ### NFPORS Fuels Treatments Enrichment
 
-
 ```python
 from enrich.enrich_NFPORS import enrich_NFPORS
 
 enrich_NFPORS(
-    nfpors_gdb_path,	
-    nfpors_polygon_layer_name,
-    nfpors_bia_layer_name,
-    nfpors_fws_layer_name,
-    a_reference_gdb_path,
-    start_year,
-    end_year,
-    output_gdb_path,
-    output_layer_name
+    nfpors_gdb_path,            # NFPORS geodatabase path
+    nfpors_polygon_layer_name,  # NFPORS polygon layer name
+    nfpors_bia_layer_name,      # BIA layer name
+    nfpors_fws_layer_name,      # FWS layer name
+    a_reference_gdb_path,       # Reference geodatabase path
+    start_year,                 # Start year for processing
+    end_year,                   # End year for processing
+    output_gdb_path,            # Output geodatabase path
+    output_layer_name           # Output layer name
 )
 ```
 
@@ -140,18 +139,17 @@ python enrich/enrich_NFPORS.py
 
 ### USFS Treatments Enrichment
 
-
 ```python
 from enrich.enrich_USFS import enrich_USFS
 
-enrich_NFPORS(
-    usfs_gdb_path,
-    usfs_layer_name, 
-    a_reference_gdb_path,
-    start_year,
-    end_year,
-    output_gdb_path,
-    output_layer_name
+enrich_USFS(                   
+    usfs_gdb_path,             # USFS geodatabase path
+    usfs_layer_name,           # USFS layer name 
+    a_reference_gdb_path,      # Reference geodatabase path
+    start_year,                # Start year for processing
+    end_year,                  # End year for processing
+    output_gdb_path,           # Output geodatabase path
+    output_layer_name          # Output layer name
 )
 ```
 
