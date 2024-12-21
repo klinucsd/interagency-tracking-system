@@ -23,8 +23,8 @@ The **Wildfire & Landscape Resilience Interagency Tracking System** is a compreh
 
 1. Clone the repository:
    ```bash
-   git clone [repository-url]
-   cd [repository-name]
+   git clone https://github.com/klinucsd/interagency-tracking-system
+   cd interagency-tracking-system
    ```
 
 2. Install required Python packages:
@@ -50,9 +50,9 @@ enrich_Timber_Industry(
     reference_gdb_path,  # Reference geodatabase path
     timber_gdb_path,     # Timber spatial data path
     start_year,          # Start year for processing
-    end_year,           # End year for processing
-    output_gdb_path,    # Output geodatabase path
-    output_layer_name   # Output layer name
+    end_year,            # End year for processing
+    output_gdb_path,     # Output geodatabase path
+    output_layer_name    # Output layer name
 )
 ```
 
@@ -71,9 +71,9 @@ enrich_BLM(
     input_layer_name,    # Input layer name
     reference_gdb_path,  # Reference geodatabase path
     start_year,          # Start year for processing
-    end_year,           # End year for processing
-    output_gdb_path,    # Output geodatabase path
-    output_layer_name   # Output layer name
+    end_year,            # End year for processing
+    output_gdb_path,     # Output geodatabase path
+    output_layer_name    # Output layer name
 )
 ```
 
@@ -93,9 +93,9 @@ enrich_NPS_from_gdb(
     input_layer_name,    # Input layer name
     reference_gdb_path,  # Reference geodatabase path
     start_year,          # Start year for processing
-    end_year,           # End year for processing
-    output_gdb_path,    # Output geodatabase path
-    output_layer_name   # Output layer name
+    end_year,            # End year for processing
+    output_gdb_path,     # Output geodatabase path
+    output_layer_name    # Output layer name
 )
 
 # For ArcGIS Feature Service input
@@ -103,15 +103,61 @@ enrich_NPS_from_arcgis(
     feature_service_url, # ArcGIS Feature Service URL
     reference_gdb_path,  # Reference geodatabase path
     start_year,          # Start year for processing
-    end_year,           # End year for processing
-    output_gdb_path,    # Output geodatabase path
-    output_layer_name   # Output layer name
+    end_year,            # End year for processing
+    output_gdb_path,     # Output geodatabase path
+    output_layer_name    # Output layer name
 )
 ```
 
 Quick execution:
 ```bash
 python enrich/enrich_NPS.py
+```
+
+### NFPORS Fuels Treatments Enrichment
+
+
+```python
+from enrich.enrich_NFPORS import enrich_NFPORS
+
+enrich_NFPORS(
+    nfpors_gdb_path,	
+    nfpors_polygon_layer_name,
+    nfpors_bia_layer_name,
+    nfpors_fws_layer_name,
+    a_reference_gdb_path,
+    start_year,
+    end_year,
+    output_gdb_path,
+    output_layer_name
+)
+```
+
+Quick execution:
+```bash
+python enrich/enrich_NFPORS.py
+```
+
+### USFS Treatments Enrichment
+
+
+```python
+from enrich.enrich_USFS import enrich_USFS
+
+enrich_NFPORS(
+    usfs_gdb_path,
+    usfs_layer_name, 
+    a_reference_gdb_path,
+    start_year,
+    end_year,
+    output_gdb_path,
+    output_layer_name
+)
+```
+
+Quick execution:
+```bash
+python enrich/enrich_USFS.py
 ```
 
 ## Data Enrichment Process
