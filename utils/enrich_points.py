@@ -50,9 +50,6 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
     # --------------------------------------------------------------
     # WUI Processing
 
-    # ----- delete the following line 
-    wui_input_gdf["IN_WUI"] = None
-
     logger.info("            enrich step 2/16 select records with null WUI")
     null_wui_mask = wui_input_gdf['IN_WUI'].isna() | (wui_input_gdf['IN_WUI'] == '')
     wui_selected_gdf = wui_input_gdf[null_wui_mask].copy()
@@ -71,7 +68,6 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
     wui_input_gdf.loc[non_wui_gdf.index, 'IN_WUI'] = 'NON-WUI_AUTO_POP'
     show_columns(logger, wui_input_gdf, "wui_input_gdf")
 
-
     #-------------------------------------------------------------------
     logger.info("         Calculating Ownership, Counties, and Regions...")
     
@@ -88,7 +84,6 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
 
     ownership_gdf = ownership_gdf.drop(columns=['GIS_ACRES', 'Shape_Area', 'Shape_Length'])
     show_columns(logger, ownership_gdf, "ownership_gdf")
-
     
     # Ownership Processing
     logger.info("            enrich step 8/16 spatial join ownership")
@@ -157,19 +152,14 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
     veg_regions_ownership_wui_gdf.loc[mask, 'BROAD_VEGETATION_TYPE'] = veg_regions_ownership_wui_gdf.loc[mask, 'WHR13NAME']
     veg_regions_ownership_wui_gdf['BVT_USERD'] = 'NO'
 
-
     # -------------------------------------------------------------
     logger.info("            enrich step 13/16 Initiating Crosswalk")
-
     points_enriched = crosswalk(veg_regions_ownership_wui_gdf, a_reference_gdb_path, start_year, end_year)      
     
-    logger.info("         Crosswalk Complete. Continuing Enrichment...")
-    
-    
+    logger.info("         Crosswalk Complete. Continuing Enrichment...")    
     logger.info("            enrich step 14/16 calculating Years")
     points_enriched = calculate_fiscal_years(points_enriched) 
 
-    
     logger.info("            enrich step 15/16 calculating Latitude and Longitude")
     # Extract coordinates from geometry
     points_enriched['LATITUDE'] = points_enriched.geometry.y
@@ -180,5 +170,4 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
     points_enriched = keep_fields(points_enriched)
 
     logger.info("         Enrich Points Complete...")
-    
     return points_enriched
