@@ -108,14 +108,12 @@ def update_enriched_data(gdf):
     return gdf
 
 
-
 def enrich_Timber_Nonspatial(tn_input_excel_path,
                              a_reference_gdb_path,
                              start_year,
                              end_year,
                              output_gdb_path,
                              output_layer_name):
-
 
     logger.info("Load the Timeber Industry Nonspatial data into a DataFrame")
     start = time.time()
