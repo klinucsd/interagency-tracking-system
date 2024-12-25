@@ -177,7 +177,6 @@ def enrich_Timber_Industry(ti_gdb_path,
     
     logger.info("   step 13/15 Calculate Treatment ID...")
     enriched_ti["TRMTID_USER"] = enriched_ti["PROJECTID_USER"]
-
     show_columns(logger, enriched_ti, "enriched_ti")
 
     logger.info("   step 14/15 Assign Domains...")
@@ -204,7 +203,7 @@ if __name__ == "__main__":
     
     enrich_Timber_Industry(ti_input_gdb_path,
                            ti_input_layer_name,
-                           "a_Reference.gdb",
+                           a_reference_gdb_path,
                            start_year,
                            end_year,
                            output_gdb_path,

@@ -67,15 +67,9 @@ def crosswalk(input_df, a_reference_gdb_path, start_year, end_year):
     
     logger.info("            cross step 7/8 standardize domains")
     standardized_df = standardize_domains(categorized_df)
-
-    logger.debug('-'*70)
-    logger.debug(standardized_df[['AGENCY', 'PROJECT_STATUS', 'ORG_ADMIN_p', 'ADMINISTERING_ORG']])
     
     logger.info("            cross step 8/8 counts towards MAS")
     standardized_df = counts_to_mas(standardized_df, start_year, end_year)
-    
-    logger.debug('-'*70)
-    logger.debug(standardized_df[['AGENCY', 'PROJECT_STATUS', 'ORG_ADMIN_p', 'ADMINISTERING_ORG']])
     
     # Keep only specified fields
     final_output = keep_fields(standardized_df)
