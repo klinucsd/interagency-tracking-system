@@ -18,6 +18,7 @@ def categorize_activity(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         GeoDataFrame with new ACTIVITY_CAT field
     """
     def classify_activity(row):
+
         Act = row['ACTIVITY_DESCRIPTION']
         Veg = row['BROAD_VEGETATION_TYPE']
         Obj = row['PRIMARY_OBJECTIVE']
@@ -52,9 +53,9 @@ def categorize_activity(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         }
         if Act in timber_harvest_activities:
             return "TIMB_HARV"
-            
+        
         # Pest control logic
-        if Act == "PEST_CNTRL":
+        if not pd.isna(Act) and Act == "PEST_CNTRL":
             return "SANI_SALVG" if Veg == "FOREST" else "WATSHD_IMPRV"
             
         # Watershed improvement activities
@@ -62,7 +63,7 @@ def categorize_activity(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
             return "WATSHD_IMPRV"
             
         # Herbicide application logic
-        if Act == "HERBICIDE_APP":
+        if not pd.isna(Act) and Act == "HERBICIDE_APP":
             watershed_objectives = {
                 "BURNED_AREA_RESTOR", "CARBON_STORAGE", "ECO_RESTOR",
                 "HABITAT_RESTOR", "INV_SPECIES_CNTRL", "LAND_PROTECTION",
@@ -97,7 +98,7 @@ def categorize_activity(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
             return "BENEFICIAL_FIRE"
             
         # Grazing activities
-        if Act == "PRESCRB_HERBIVORY":
+        if not pd.isna(Act) and Act == "PRESCRB_HERBIVORY":
             return "GRAZING"
             
         # Land protection activities

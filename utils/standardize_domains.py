@@ -347,6 +347,10 @@ def update_region(Region):
 
 
 def update_activity_description(act):
+
+    if pd.isna(act):
+        return "TBD"
+    
     if act in [
         'AMW_AREA_RESTOR', 'BIOMASS_REMOVAL', 'BROADCAST_BURN', 'CHAIN_CRUSH', 
         'CHIPPING', 'CLEARCUT', 'COMM_THIN', 'CONVERSION', 'DISCING', 'DOZER_LINE', 

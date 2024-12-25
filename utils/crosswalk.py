@@ -32,33 +32,33 @@ def crosswalk(input_df, a_reference_gdb_path, start_year, end_year):
     logger.info("            Load Crosswalk table...")
     crosswalk_table = pyogrio.read_dataframe(a_reference_gdb_path, layer='Crosswalk')
     show_columns(logger, crosswalk_table, "crosswalk_table")
-
+    
     logger.info("            cross step 1/8 add join")
+    # First, do the calculations on matched rows
     merged_df = input_df.merge(
         crosswalk_table,
         left_on='Crosswalk',
         right_on='Original_Activity',
-        how='inner'  # KEEP_COMMON equivalent
+        how='left'  # KEEP_COMMON equivalent
     )
 
-    show_columns(logger, merged_df, "merged_df")
-        
     logger.info("            cross step 2/8 calculate activities")
-    merged_df['ACTIVITY_DESCRIPTION'] = merged_df['Activity']
+    mask = merged_df['Activity'].notna()
+    merged_df.loc[mask, 'ACTIVITY_DESCRIPTION'] = merged_df.loc[mask, 'Activity']
     
     logger.info("            cross step 3/8 calculate residue fate field")
-    merged_df['RESIDUE_FATE'] = merged_df['Residue_Fate']
-    
-    logger.info("            cross step 4/8 select attribute by layer")
-    mask = merged_df['PRIMARY_OBJECTIVE'].isna() | (merged_df['PRIMARY_OBJECTIVE'] == 'TBD')
-    
-    logger.info("            cross step 5/8 calculating objective...")
-    merged_df.loc[mask, 'PRIMARY_OBJECTIVE'] = merged_df.loc[mask, 'Objective']
+    merged_df.loc[mask, 'RESIDUE_FATE'] = merged_df.loc[mask, 'Residue_Fate']
 
-    # Remove joined columns except those we want to keep (equivalent to RemoveJoin)
-    columns_to_keep = [col for col in merged_df.columns if not col.startswith('Crosswalk.')]
+    logger.info("            cross step 4/8 select attribute by layer")
+    objective_mask = merged_df['PRIMARY_OBJECTIVE'].isna() | (merged_df['PRIMARY_OBJECTIVE'] == 'TBD')
+
+    logger.info("            cross step 5/8 calculating objective...")
+    update_mask = mask & objective_mask
+    merged_df.loc[update_mask, 'PRIMARY_OBJECTIVE'] = merged_df.loc[update_mask, 'Objective']
+
+    # Remove joined columns except those we want to keep
+    columns_to_keep = [col for col in input_df.columns]
     df_no_join = merged_df[columns_to_keep]
-    
     show_columns(logger, df_no_join, "df_no_join")
     
     logger.info("            cross step 6/8 calculate category")

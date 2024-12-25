@@ -93,7 +93,7 @@ def apply_domain(
     
     if domain_name not in domains:
         raise ValueError(f"Domain '{domain_name}' not found")
-    
+
     if column_name not in gdf.columns:
         raise ValueError(f"Column '{column_name}' not found in GeoDataFrame")
         
@@ -230,7 +230,6 @@ def assign_domains(gdf):
     gdf = assign_project_domains(gdf, domains)
     gdf = assign_treatment_domains(gdf, domains)
     gdf = assign_activity_domains(gdf, domains)
-
     return gdf
 
 
