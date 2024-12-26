@@ -201,7 +201,7 @@ python enrich/enrich_enrich_Timber_Nonspatial.py
 
 ### Batch Processing
 
-ITSProcessor supports batch processing of data based on yaml configuration. Below is an example of config.yaml:
+The system uses YAML configuration for batch processing. Below is an example of config.yaml:
 
 ```bash
 # Data processing configuration
@@ -323,3 +323,5 @@ python process/ITSProcessor.py
 - **GDAL**: Geospatial data manipulation
 - **Docker**: Containerization and deployment
 - **Python**: Core programming language
+
+
