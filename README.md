@@ -39,6 +39,16 @@ The **Wildfire & Landscape Resilience Interagency Tracking System** is a compreh
 
 ## Data Processing Modules
 
+1. Data Enrichment
+
+2. Data Appendment
+
+3. Data Transformation
+
+4. Activities Report
+
+5. Footprints Report
+
 
 ## Data Enrichment Process
 
@@ -280,7 +290,7 @@ processing_steps:
 
 Quick execution:
 ```bash
-python enrich/enrich_enrich_Timber_Nonspatial.py
+python process/ITSProcessor.py 
 ```
 
 
