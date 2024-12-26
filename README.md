@@ -39,6 +39,16 @@ The **Wildfire & Landscape Resilience Interagency Tracking System** is a compreh
 
 ## Data Processing Modules
 
+
+## Data Enrichment Process
+
+The system enriches incoming data with the following attributes:
+- Vegetation cover type
+- Land ownership type
+- County information
+- Task Force region
+- Wildland-Urban Interface (WUI) classification
+
 ### Timber Industry Data Enrichment
 
 ```python
@@ -179,15 +189,6 @@ Quick execution:
 python enrich/enrich_enrich_Timber_Nonspatial.py
 ```
 
-
-## Data Enrichment Process
-
-The system enriches incoming data with the following attributes:
-- Vegetation cover type
-- Land ownership type
-- County information
-- Task Force region
-- Wildland-Urban Interface (WUI) classification
 
 ## Output Formats
 
