@@ -75,7 +75,7 @@ NFPORS_FWS_COLUMNS = [
 ]
 
 
-def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_year, end_year):
+def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name):
     """
     Standardize polygon features using GeoPandas
     """
@@ -162,7 +162,7 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
     return nfpors_polygon_gdf
     
 
-def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year, end_year):
+def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name):
     """
     Standardize point features using GeoPandas
     """
@@ -321,8 +321,8 @@ def enrich_NFPORS(nfpors_gdb_path,
     nfpors_fws = nfpors_fws.to_crs(3310)
     show_columns(logger, nfpors_fws, "nfpors_fws")
 
-    standardize_NFPORS_polygon(nfpors_polygon, a_reference_gdb_path, start_year, end_year)
-    standardize_NFPORS_point(nfpors_bia, nfpors_fws, a_reference_gdb_path, start_year, end_year)
+    standardize_NFPORS_polygon(nfpors_polygon, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
+    standardize_NFPORS_point(nfpors_bia, nfpors_fws, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
 
 
     
