@@ -212,43 +212,9 @@ def get_footprint(
         # Perform spatial join (equivalent to Identity)
         # Using spatial index for better performance
         logger.info(f"         Making spaghetti_sauce ...")
-
-        print("=======> ", spaghetti_polygons.shape)
-        print("=======> ", own_veg_region_wui.shape)
-
-        chunk = spaghetti_polygons.iloc[0:100]
-        own_veg_region_wui_sindex = own_veg_region_wui.sindex
-        total_bounds = chunk.total_bounds
-        possible_matches_idx = list(own_veg_region_wui_sindex.intersection(total_bounds))
-        if not possible_matches_idx:
-            print("no match")
-        else:
-            print("possible_matches_idx", len(possible_matches_idx))
-
-            # Subset the larger dataset to only potential matches
-            candidate_matches = own_veg_region_wui.iloc[possible_matches_idx]
-        
-            # Perform overlay on the reduced dataset
-            if not candidate_matches.empty:
-                overlay_result = gpd.overlay(chunk, candidate_matches, how='identity')
-                logger.info(f"overlay_result: {overlay_result.shape}")
-            
-        exit()
-        
         spaghetti_sauce = gpd.overlay(spaghetti_polygons, own_veg_region_wui, how='identity')
         spaghetti_sauce = spaghetti_sauce.set_crs('EPSG:3310', allow_override=True)
         logger.info(f"            spaghetti_sauce: {spaghetti_sauce.shape[0]} records")
-
-        exit()
- 
-        """
-        chunks = np.array_split(spaghetti, 32)
-        with Pool(processes=32) as pool:
-            results = pool.map(process_chunk, [(spaghetti, chunk) for chunk in chunks])
-        spaghetti_sauce = gpd.GeoDataFrame(pd.concat(results), crs=spaghetti.crs)        
-        """
-        
-
         
         # Update CalTrans ownership
         caltrans_mask = input_gdf['AGENCY'] == 'CALSTA'
