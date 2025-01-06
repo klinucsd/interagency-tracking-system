@@ -28,10 +28,11 @@ def crosswalk(input_df, a_reference_gdb_path, start_year, end_year):
     GeoDataFrame: Processed and enriched data
     """
     logger.info("         Calculating Crosswalking Activites...")
-    
     logger.info("            Load Crosswalk table...")
     crosswalk_table = pyogrio.read_dataframe(a_reference_gdb_path, layer='Crosswalk')
     show_columns(logger, crosswalk_table, "crosswalk_table")
+
+    crosswalk_table = crosswalk_table.drop_duplicates()
     
     logger.info("            cross step 1/8 add join")
     # First, do the calculations on matched rows
@@ -41,7 +42,7 @@ def crosswalk(input_df, a_reference_gdb_path, start_year, end_year):
         right_on='Original_Activity',
         how='left'  # KEEP_COMMON equivalent
     )
-
+    
     logger.info("            cross step 2/8 calculate activities")
     mask = merged_df['Activity'].notna()
     merged_df.loc[mask, 'ACTIVITY_DESCRIPTION'] = merged_df.loc[mask, 'Activity']

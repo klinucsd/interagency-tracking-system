@@ -236,7 +236,7 @@ def enrich_USFS(usfs_gdb_path,
     logger.info("Remove Unnecessary Columns...")
     gdf = keep_fields(gdf)
 
-    logger.info("Select records between {start_year} and {end_year}...")
+    logger.info(f"Select records between {start_year} and {end_year}...")
     gdf_filtered = gdf[(gdf['Year'] >= start_year) & (gdf['Year'] <= end_year)]
 
     logger.info("Enriching Dataset...")

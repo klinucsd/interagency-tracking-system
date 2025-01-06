@@ -156,7 +156,7 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
     logger.info("   step 11/11 Save enriched polygons...")
     save_gdf_to_gdb(nfpors_polygon_gdf,
                     output_gdb_path,
-                    f"{output_layer_name}_polygons",
+                    f"{output_layer_name}_polygon",
                     group_name="c_Enriched")
     
     return nfpors_polygon_gdf
@@ -272,7 +272,7 @@ def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year,
     logger.info("   step 10/10 Save enriched points...")
     save_gdf_to_gdb(nfpors_point_gdf,
                     output_gdb_path,
-                    f"{output_layer_name}_points",
+                    f"{output_layer_name}_point",
                     group_name="c_Enriched")
     
     return nfpors_point_gdf

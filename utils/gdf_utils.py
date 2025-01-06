@@ -114,3 +114,23 @@ def hash_geodataframe(gdf):
     return hash_object.hexdigest()
 
 
+def capitalize_columns(gdf):
+    # Create a dictionary to rename columns
+    rename_dict = {col: col.upper() for col in gdf.columns if col != 'geometry'}
+
+    rename_dict['globalid'] = 'GlobalID'
+    rename_dict['Shape_Area'] = 'Shape_Area'
+    rename_dict['Shape_Length'] = 'Shape_Length'
+    rename_dict['geometry'] = 'geometry'
+    rename_dict['globalid_text'] = 'GlobalID_text'
+    rename_dict['org_admin_p'] = 'ORG_ADMIN_p'
+    rename_dict['org_admin_t'] = 'ORG_ADMIN_t'
+    rename_dict['org_admin_a'] = 'ORG_ADMIN_a'
+    
+    # Apply the renaming
+    return gdf.rename(columns=rename_dict)
+
+
+def get_rows_with_empty_geometry(gdf):
+    gdf_na = gdf[gdf.geometry.isna() | gdf.geometry.is_empty | gdf['geometry'].isnull()]
+    return gdf_na.shape

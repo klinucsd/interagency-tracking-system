@@ -19,7 +19,9 @@ def save_gdf_to_gdb(gdf, output_gdb, layer_name, group_name=None):
     output_gdb_name = os.path.basename(output_gdb)
 
     # Save GeoDataFrame to a temporary GeoJSON file
-    temp_geojson = f"{data_dir}/temp_output.geojson"    
+    temp_geojson = f"{data_dir}/temp_output.geojson"
+    logger.info(f"      Data dimension: {gdf.shape}")
+    logger.info(f"      Dumping data as temporary Geojson: {temp_geojson}")
     gdf.to_file(temp_geojson, driver="GeoJSON")
 
     # Get unique geometry types in the GeoDataFrame

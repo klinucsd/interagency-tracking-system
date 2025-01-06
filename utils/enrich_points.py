@@ -4,9 +4,10 @@ import time
 import logging
 import pandas as pd
 import geopandas as gpd
-from datetime import datetime
 import numpy as np
+import concurrent.futures
 
+from datetime import datetime
 from its_logging.logger_config import logger
 from utils.gdf_utils import show_columns
 from utils.keep_fields import keep_fields
@@ -15,6 +16,21 @@ from utils.crosswalk import crosswalk
 
 
 logger = logging.getLogger('utils.enrich_points')
+veg_layer = None
+
+
+def split_gdf(gdf, n_chunks):
+    chunk_size = int(np.ceil(len(gdf) / n_chunks))
+    return [gdf.iloc[i * chunk_size:(i + 1) * chunk_size] for i in range(n_chunks)]
+
+
+def process_chunk(chunk, ownership_gdf):
+    return gpd.sjoin_nearest(chunk, ownership_gdf, how='left')
+
+
+def process_chunk_2(chunk):
+    global veg_layer
+    return gpd.sjoin_nearest(chunk, veg_layer, how='left')
 
 
 def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
@@ -87,11 +103,26 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
     
     # Ownership Processing
     logger.info("            enrich step 8/16 spatial join ownership")
-    ownership_wui_gdf = gpd.sjoin_nearest(
-        wui_input_gdf,
-        ownership_gdf,
-        how='left'
-    )
+    wui_input_gdf.sindex
+    ownership_gdf.sindex
+    if wui_input_gdf.shape[0] > 10000:
+        # Number of chunks and workers
+        n_chunks = 16
+        chunks = split_gdf(wui_input_gdf, n_chunks)
+
+        # Process chunks concurrently
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            results = executor.map(process_chunk, chunks, [ownership_gdf] * n_chunks)
+
+        # Combine results
+        ownership_wui_gdf = gpd.GeoDataFrame(pd.concat(results, ignore_index=True))
+    else:
+        ownership_wui_gdf = gpd.sjoin_nearest(
+            wui_input_gdf,
+            ownership_gdf,
+            how='left'
+        )
+        
     ownership_wui_gdf['PRIMARY_OWNERSHIP_GROUP'] = ownership_wui_gdf['AGNCY_LEV']
     ownership_wui_gdf = ownership_wui_gdf.drop(columns=['index_right'])
     show_columns(logger, ownership_wui_gdf, "ownership_wui_gdf")
@@ -108,7 +139,6 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
         regions_gdf = gpd.read_file(a_reference_gdb_path, driver="OpenFileGDB", layer='WFRTF_Regions')
         regions_gdf.to_parquet("cache/WFRTF_Regions.parquet")
     logger.info(f"               time for loading WFRTF_Regions: {time.time()-start}")
-
     show_columns(logger, regions_gdf, "regions_gdf")
 
     logger.info("            enrich step 10/16 spatial join regions")
@@ -124,7 +154,8 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
     
     # --------------------------------------------------------------------------    
     # Vegetation Processing
-        
+
+    global veg_layer
     if os.path.exists("cache/Broad_Vegetation_Types.parquet"):
         logger.info("            enrich step 11/16 loading Broad_Vegetation_Types from cache")
         veg_layer = gpd.read_parquet("cache/Broad_Vegetation_Types.parquet")
@@ -139,12 +170,23 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
 
     logger.info("            enrich step 12/16 spatial join veg and calculations")
     regions_ownership_wui_gdf = regions_ownership_wui_gdf.drop(columns=['index_right'])
-    veg_regions_ownership_wui_gdf = gpd.sjoin_nearest(
-        regions_ownership_wui_gdf,
-        veg_layer,
-        how='left'
-    )
+    if regions_ownership_wui_gdf.shape[0] > 10000:
+        # Number of chunks and workers
+        n_chunks = 6
+        chunks = split_gdf(regions_ownership_wui_gdf, n_chunks)
 
+        # Process chunks concurrently
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            results = executor.map(process_chunk_2, chunks)
+
+        # Combine results
+        veg_regions_ownership_wui_gdf = gpd.GeoDataFrame(pd.concat(results, ignore_index=True))
+    else:
+        veg_regions_ownership_wui_gdf = gpd.sjoin_nearest(
+            regions_ownership_wui_gdf,
+            veg_layer,
+            how='left'
+        )
     show_columns(logger, veg_regions_ownership_wui_gdf, "veg_regions_ownership_wui_gdf")
     
     # Only update vegetation type if it's not already set
@@ -154,12 +196,13 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
 
     # -------------------------------------------------------------
     logger.info("            enrich step 13/16 Initiating Crosswalk")
-    points_enriched = crosswalk(veg_regions_ownership_wui_gdf, a_reference_gdb_path, start_year, end_year)      
+    points_enriched = crosswalk(veg_regions_ownership_wui_gdf, a_reference_gdb_path, start_year, end_year)     
     
     logger.info("         Crosswalk Complete. Continuing Enrichment...")    
     logger.info("            enrich step 14/16 calculating Years")
+    
     points_enriched = calculate_fiscal_years(points_enriched) 
-
+    
     logger.info("            enrich step 15/16 calculating Latitude and Longitude")
     # Extract coordinates from geometry
     points_enriched['LATITUDE'] = points_enriched.geometry.y

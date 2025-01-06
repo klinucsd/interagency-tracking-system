@@ -191,12 +191,22 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
 
     logger.debug(f"{'-'*70}")
     logger.debug(f"veg_layer: {veg_layer.shape}  :  {list(veg_layer.columns)}")
-        
+    
     start = time.time()
-    if enrich_in.shape[0] > 20000:
-        logger.info(f"               summarizing veg types with {enrich_in.shape[0]} records may take {int(enrich_in.shape[0]/10000 * 4)} minutes")
-        chunks = split_gdf(enrich_in, 10000)
-        logger.info(f"               split into {len(chunks)} chunks with 10000 records")
+    enrich_input_with_bvt = enrich_in[enrich_in['BROAD_VEGETATION_TYPE'].notna()]
+    enrich_input_without_values = enrich_in[enrich_in['BROAD_VEGETATION_TYPE'].isna()]
+    enrich_in = enrich_input_without_values.copy()
+    
+    trunk_size = 10000
+    if enrich_in.shape[0] > trunk_size:
+        estimated_time = int(enrich_in.shape[0] / 10000 * 60)
+        logger.info(
+            f"                  "
+            f"Summarizing veg types with {enrich_in.shape[0]} records "
+            f"may take up to {estimated_time} minutes depending on the geometries."
+        )
+        chunks = split_gdf(enrich_in, trunk_size)
+        logger.info(f"               split into {len(chunks)} chunks with {trunk_size} records")
         enriched_list = []
         for index, chunk in enumerate(chunks):
             logger.info(f"            ================ processing chuck {index+1} ================")
@@ -220,6 +230,8 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
         veg_enriched = summarize_within(enrich_in, veg_layer)
     logger.info(f"               time for summarizing veg types: {time.time()-start}")
 
+    veg_enriched = pd.concat([enrich_input_with_bvt, veg_enriched], ignore_index=True)
+    
     logger.debug(f"{'-'*70}")
     logger.debug(f"veg_enriched:  {veg_enriched.shape}  :  {list(veg_enriched.columns)}")
 

@@ -26,7 +26,7 @@ def counts_to_mas(gdf, start_year, end_year):
     gdf['COUNTS_TO_MAS'] = 'NO'
  
     logger.info(f"            counts step 2/8: select by bounding years ({start_year}-{end_year})")
-    gdf['ACTIVITY_END'] = pd.to_datetime(gdf['ACTIVITY_END'])
+    gdf['ACTIVITY_END'] = pd.to_datetime(gdf['ACTIVITY_END'], errors='coerce')
     mask_dates = (gdf['ACTIVITY_END'] >= f'{start_year}-01-01') & (gdf['ACTIVITY_END'] < f'{end_year+1}-01-01')
     
     logger.info("            counts step 3/8: set to 'YES' if activity description is in the list")
