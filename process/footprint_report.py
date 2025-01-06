@@ -270,39 +270,15 @@ def get_footprint_report(
 
     logger.info("-"*80)
     logger.info("Generate Footprint Report...")
-
-    if get_rows_with_empty_geometry(enriched_points)[0] > 0:
-        logger.error("Found empty geometry in enriched_points: ")
-        exit()
-
-    if get_rows_with_empty_geometry(enriched_lines)[0] > 0:
-        logger.error("Found empty geometry in enriched_lines: ")
-        exit()
-
-    if get_rows_with_empty_geometry(enriched_polygons)[0] > 0:
-        logger.error("Found empty geometry in enriched_polygons: ")
-        exit()
         
     logger.info("   Processing points...")
     buffer_pts = update_pt(enriched_points)
 
-    if get_rows_with_empty_geometry(buffer_pts)[0] > 0:
-        logger.error("Found empty geometry in buffer_pts: ")
-        exit()
-
     logger.info("   Processing lines...")
     buffer_lines = update_ln(enriched_lines)
-
-    if get_rows_with_empty_geometry(buffer_lines)[0] > 0:
-        logger.error("Found empty geometry in buffer_lines")
-        exit()
     
     logger.info("   Processing polygons...")
     processed_polys = update_poly(enriched_polygons)
-
-    if get_rows_with_empty_geometry(processed_polys)[0] > 0:
-        logger.error("Found empty geometry in processed_polys")
-        exit()
     
     # Combine all features
     combined_features = pd.concat([
