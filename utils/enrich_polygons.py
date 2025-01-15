@@ -25,6 +25,7 @@ logger = logging.getLogger('utils.enrich_polygons')
 # Global variables
 in_polygons = None
 in_sum_features_filtered = None
+joined = None
 
 def init_globals(polygons_df, features_df):
     """Initialize global variables for multiprocessing"""
