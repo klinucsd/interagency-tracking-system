@@ -38,6 +38,7 @@ def enrich_lines(line_gdf, a_reference_gdb_path, start_year, end_year):
     # Step 2: Enrich points
     logger.info("         enrich line step 2/4 execute enrich_points...")
     enriched_points = enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year)
+
     
     # Step 3: Join enriched attributes back to lines
     logger.info("         enrich line step 3/4 importing attributes")

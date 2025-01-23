@@ -30,17 +30,43 @@ def counts_to_mas(gdf, start_year, end_year):
     mask_dates = (gdf['ACTIVITY_END'] >= f'{start_year}-01-01') & (gdf['ACTIVITY_END'] < f'{end_year+1}-01-01')
     
     logger.info("            counts step 3/8: set to 'YES' if activity description is in the list")
-    qualifying_activities = [
-        'BIOMASS_REMOVAL', 'BROADCAST_BURN', 'CHAIN_CRUSH', 'CHIPPING',
-        'COMM_THIN', 'DISCING', 'GRP_SELECTION_HARVEST', 'HERBICIDE_APP',
-        'INV_PLANT_REMOVAL', 'LANDING_TRT', 'LOP_AND_SCAT', 'MASTICATION',
-        'MOWING', 'OAK_WDLND_MGMT', 'PEST_CNTRL', 'PILE_BURN', 'PILING',
-        'PL_TREAT_BURNED', 'PRESCRB_HERBIVORY', 'PRUNING', 'REHAB_UNDRSTK_AREA',
-        'ROAD_CLEAR', 'SANI_HARVEST', 'SINGLE_TREE_SELECTION', 'SITE_PREP',
-        'SLASH_DISPOSAL', 'SP_PRODUCTS', 'THIN_MAN', 'THIN_MECH',
-        'TRANSITION_HARVEST', 'TREE_FELL', 'TREE_PLNTING', 'TREE_RELEASE_WEED',
-        'TREE_SEEDING', 'UTIL_RIGHTOFWAY_CLR', 'VARIABLE_RETEN_HARVEST', 'YARDING'
-    ]
+    qualifying_activities = ['BIOMASS_REMOVAL',
+                            'BROADCAST_BURN',
+                            'CHAIN_CRUSH',
+                            'CHIPPING',
+                            'COMM_THIN',
+                            'DISCING',
+                            'GRP_SELECTION_HARVEST',
+                            'HERBICIDE_APP',
+                            'INV_PLANT_REMOVAL',
+                            'LANDING_TRT',
+                            'LOP_AND_SCAT',
+                            'MASTICATION',
+                            'MOWING',
+                            'OAK_WDLND_MGMT',
+                            'PEST_CNTRL',
+                            'PILE_BURN',
+                            'PILING',
+                            'PL_TREAT_BURNED', 
+                            'PRESCRB_HERBIVORY',
+                            'PRUNING',
+                            'REHAB_UNDRSTK_AREA',
+                            'ROAD_CLEAR',
+                            'SANI_HARVEST',
+                            'SINGLE_TREE_SELECTION',
+                            'SITE_PREP',
+                            'SLASH_DISPOSAL',
+                            'SP_PRODUCTS',
+                            'THIN_MAN',
+                            'THIN_MECH',
+                            'TRANSITION_HARVEST',
+                            'TREE_FELL',
+                            'TREE_PLNTING',
+                            'TREE_RELEASE_WEED',
+                            'TREE_SEEDING',
+                            'UTIL_RIGHTOFWAY_CLR',
+                            'VARIABLE_RETEN_HARVEST',
+                            'YARDING']
     
     # Apply all conditions sequentially
     mask_activities = gdf['ACTIVITY_DESCRIPTION'].isin(qualifying_activities)
@@ -56,16 +82,19 @@ def counts_to_mas(gdf, start_year, end_year):
     mask_category = gdf['ACTIVITY_CAT'] != 'WATSHD_IMPRV'
     
     logger.info("            counts step 7/8: set to 'NO' if Agency is 'Other' and Admin is 'CARB'")
-    mask_pifirs = ~((gdf['AGENCY'] == 'OTHER') & (gdf['ORG_ADMIN_p'] == 'CARB'))
+    # PFIRS modification
+    mask_pifirs = ~((gdf['AGENCY'] == 'OTHER') & (gdf['TRMTID_USER'].apply(lambda x: x[:5] == 'PFIRS')))
+
+    mask_parks = ~((gdf['AGENCY'] == 'PARKS') & (gdf['TRMTID_USER'].apply(lambda x: x[:5] == 'PFIRS')))
     
     logger.info("            counts step 8/8: set to 'NO' if Org is 'USFS' and Status is 'Active'")
     mask_usfs = ~((gdf['ADMINISTERING_ORG'] == 'USFS') & (gdf['ACTIVITY_STATUS'] == 'ACTIVE'))
     
-    excluded_agencies = ['BOF', 'CCC', 'SMMC', 'SNC', 'SCC', 'SDRC', 'MRCA', 'RMC', 'OTHER']
+    excluded_agencies = ['BOF', 'OTHER']
     mask_agencies = ~gdf['ADMINISTERING_ORG'].isin(excluded_agencies)
     
     final_mask = (mask_dates & mask_activities & mask_uom & mask_status & 
-                 mask_category & mask_pifirs & mask_usfs & mask_agencies)
+                 mask_category & mask_pifirs & mask_parks & mask_usfs & mask_agencies)
     
     gdf.loc[final_mask, 'COUNTS_TO_MAS'] = 'YES'
     

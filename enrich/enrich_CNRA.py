@@ -44,7 +44,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 CNRA_POLYGON_COLUMNS = [
-    'Shape_Area', 'Shape_Length', 'county', 'created_date',
+    'county', 'created_date',
     'created_user', 'geometry', 'globalid', 'globalid_text', 'in_wui',
     'last_edited_date', 'last_edited_user', 'org_admin_t', 'primary_objective',
     'primary_ownership_group', 'projectid', 'projectid_user', 'projectname_',
@@ -53,7 +53,7 @@ CNRA_POLYGON_COLUMNS = [
     'treatment_status', 'trmtid_user', 'validationstatus']
 
 CNRA_LINE_COLUMNS = [
-    'Shape_Length', 'county', 'created_date', 'created_user',
+    'county', 'created_date', 'created_user',
     'geometry', 'globalid', 'globalid_text', 'in_wui', 'last_edited_date',
     'last_edited_user', 'org_admin_t', 'primary_objective', 'primary_ownership_group',
     'projectid', 'projectid_user', 'projectname_', 'region', 'retreatment_date_est',
@@ -69,7 +69,7 @@ CNRA_POINT_COLUMNS = [
     'treatment_start', 'treatment_status', 'trmtid_user', 'validationstatus']
 
 CNRA_PROJECT_COLUMNS = [
-    'Shape_Area', 'Shape_Length', 'administering_org', 'agency',
+    'administering_org', 'agency',
     'created_date', 'created_user', 'geometry', 'globalid', 'globalid_text',
     'implementing_org', 'last_edited_date', 'last_edited_user', 'latitude',
     'longitude', 'org_admin_p', 'primary_funding_org', 'primary_funding_source',
@@ -496,15 +496,15 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    cnra_input_gdb_path = "b_Originals/CNRA_Tracker_Data_UpdatedCM_20240827.gdb"
-    cnra_polygon_layer_name = "TREATMENT_POLY_20240827"
-    cnra_line_layer_name = "TREATMENT_LINE_20240827"
-    cnra_point_layer_name = "TREATMENT_POINT_20240827"
-    cnra_project_polygon_layer_name = "PROJECT_POLY_20240827"
-    cnra_activity_layer_name = "ACTIVITIES_20240827"
-    a_reference_gdb_path = "a_Reference.gdb"
+    cnra_input_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\2023\CNRA_2023\CNRA_Tracker_Data_Export_20241120.gdb"
+    cnra_polygon_layer_name = "TREATMENT_POLY"
+    cnra_line_layer_name = "TREATMENT_LINE"
+    cnra_point_layer_name = "TREATMENT_POINT"
+    cnra_project_polygon_layer_name = "PROJECT_POLY"
+    cnra_activity_layer_name = "ACTIVITIES"
+    a_reference_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\Interagency Tracking System.gdb"
     start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/CNRA_{start_year}_{end_year}.gdb"
+    output_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\ITSGDB_backup\tmp\CNRA_{}_{}.gdb".format(start_year, end_year)
     output_layer_name = f"CNRA_enriched_{datetime.today().strftime('%Y%m%d')}"
 
     enrich_CNRA(cnra_input_gdb_path,

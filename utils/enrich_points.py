@@ -13,7 +13,7 @@ from utils.gdf_utils import show_columns
 from utils.keep_fields import keep_fields
 from utils.year import calculate_fiscal_years
 from utils.crosswalk import crosswalk
-
+from utils.process_chunk import process_chunk
 
 logger = logging.getLogger('utils.enrich_points')
 veg_layer = None
@@ -23,14 +23,6 @@ def split_gdf(gdf, n_chunks):
     chunk_size = int(np.ceil(len(gdf) / n_chunks))
     return [gdf.iloc[i * chunk_size:(i + 1) * chunk_size] for i in range(n_chunks)]
 
-
-def process_chunk(chunk, ownership_gdf):
-    return gpd.sjoin_nearest(chunk, ownership_gdf, how='left')
-
-
-def process_chunk_2(chunk):
-    global veg_layer
-    return gpd.sjoin_nearest(chunk, veg_layer, how='left')
 
 
 def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
@@ -170,6 +162,8 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
 
     logger.info("            enrich step 12/16 spatial join veg and calculations")
     regions_ownership_wui_gdf = regions_ownership_wui_gdf.drop(columns=['index_right'])
+
+
     if regions_ownership_wui_gdf.shape[0] > 10000:
         # Number of chunks and workers
         n_chunks = 6
@@ -177,7 +171,7 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
 
         # Process chunks concurrently
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            results = executor.map(process_chunk_2, chunks)
+            results = executor.map(process_chunk, chunks, [veg_layer]*n_chunks)
 
         # Combine results
         veg_regions_ownership_wui_gdf = gpd.GeoDataFrame(pd.concat(results, ignore_index=True))

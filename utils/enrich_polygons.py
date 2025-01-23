@@ -9,7 +9,7 @@ import numpy as np
 from multiprocessing import Pool
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from multiprocessing import Pool
+
 
 from its_logging.logger_config import logger
 from utils.gdf_utils import show_columns, hash_geodataframe
@@ -25,16 +25,18 @@ logger = logging.getLogger('utils.enrich_polygons')
 # Global variables
 in_polygons = None
 in_sum_features_filtered = None
+joined = None
 
-def init_globals(polygons_df, features_df):
+def init_globals(polygons_df, features_df, in_joined):
     """Initialize global variables for multiprocessing"""
-    global in_polygons, in_sum_features_filtered
+    global in_polygons, in_sum_features_filtered, joined
     in_polygons = polygons_df
     in_sum_features_filtered = features_df
+    joined = in_joined
 
 def process_group(idx):
     """Process a single group of joined features"""
-    global in_polygons, in_sum_features_filtered
+    global in_polygons, in_sum_features_filtered, joined
     
     group = joined[joined['Join_ID'] == idx]
     intersection_areas = []
@@ -95,7 +97,7 @@ def process_spatial_join_parallel(in_polygons_df, in_sum_features_filtered_df, n
     logger.info(f"            enrich step 5/32 concurrent calculate veg type for each polygon")
     with Pool(processes=n_processes, 
              initializer=init_globals, 
-             initargs=(in_polygons_df, in_sum_features_filtered_df)) as pool:
+             initargs=(in_polygons_df, in_sum_features_filtered_df, joined)) as pool:
         
         # Process groups in parallel
         results = pool.map(process_group, unique_ids)

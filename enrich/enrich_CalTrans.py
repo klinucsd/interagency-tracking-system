@@ -177,6 +177,7 @@ def caltrans(
     # Enrich data
     logger.info("   step 6/10 calculate broad veg table, region and etc")
     enriched_data = enrich_lines(merged_data, a_reference_gdb_path, start_year, end_year)    
+
     logger.info(f"      enriched data has {len(enriched_data)} records")
     
     # Final calculations
@@ -244,6 +245,7 @@ def enrich_Caltrans(caltrans_input_gdb_path,
         output_gdb_path,
         output_layer_name)
     
+
     
 if __name__ == "__main__":
     # Get the current process ID
