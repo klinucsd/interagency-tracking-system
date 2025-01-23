@@ -37,18 +37,18 @@ The **Wildfire & Landscape Resilience Interagency Tracking System** is a compreh
 
 2.2 Install GDAL with conda forge (prior to other libraries)
    ```bash
-	conda install -c conda-forge gdal
+   conda install -c conda-forge gdal
    ```
 2.3 Install dependent libraries
    ```bash
-	pip install -r requirements.txt
+   pip install -r requirements.txt
    conda install -c conda-forge pyarrow
    ```
 
 2.4 Optionally install Jupyter
    ```bash
-	conda forge install jupyter
-	pip install setuptools
+   conda forge install jupyter
+   pip install setuptools
    ```
 
 3. Pull the GDAL Docker image:
