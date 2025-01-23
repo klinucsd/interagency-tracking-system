@@ -21,15 +21,34 @@ The **Wildfire & Landscape Resilience Interagency Tracking System** is a compreh
 
 ## Installation
 
-1. Clone the repository:
+1. Install Docker
+
+2. Setup Anaconda and activate the new environment
+	```bash
+	conda create -n myenv
+   conda activate myenv
+   ```
+
+2.1. Clone the repository:
    ```bash
    git clone https://github.com/klinucsd/interagency-tracking-system
    cd interagency-tracking-system
    ```
 
-2. Install required Python packages:
+2.2. Install GDAL with conda forge (prior to other libraries)
    ```bash
-   pip install -r requirements.txt
+	conda install -c conda-forge gdal
+   ```
+2.3. Install dependent libraries
+   ```bash
+	pip install -r requirements.txt
+   conda install -c conda-forge pyarrow
+   ```
+
+2.4 Optionally install Jupyter
+   ```bash
+	conda forge install jupyter
+	pip install setuptools
    ```
 
 3. Pull the GDAL Docker image:
