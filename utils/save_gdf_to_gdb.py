@@ -4,6 +4,7 @@ import subprocess
 import traceback
 import logging
 import geopandas as gpd
+from shapely import MultiPoint, Point, MultiLineString, LineString, MultiPolygon, Polygon
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,18 @@ def save_gdf_to_gdb(gdf, output_gdb, layer_name, group_name=None):
     if os.name == 'nt':
 
         logger.info(f"      Windows machine detected")
+        logger.info(f"      Check geodataframe geometry object and cast to Multi-x type if both exist")
+        # geodataframe does not like mixed geometry type
+        gdf_geom_type = gdf.geom_type.unique()
+        if len(gdf_geom_type) > 1:
+            if 'Point' in gdf_geom_type:
+                gdf.geometry = gdf.geometry.apply(lambda x: MultiPoint([x]) if isinstance(x, Point) else x)
+            elif 'Line' in gdf_geom_type:
+                gdf.geometry = gdf.geometry.apply(lambda x: MultiLineString([x]) if isinstance(x, LineString) else x)
+            elif 'Polygon' in gdf_geom_type:
+                gdf.geometry = gdf.geometry.apply(lambda x: MultiPolygon([x]) if isinstance(x, Polygon) else x)
+            else:
+                raise Exception('geometry outside of points, lines, polygon: {}'.format(gdf_geom_type))
         logger.info(f"      Running GDAL OpenFileGDB to save to file")
         gdf.to_file(
                 output_gdb, 

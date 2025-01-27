@@ -246,7 +246,8 @@ def enrich_NPS(nps,
     
     logger.info("   step 10/11 Assign Domains...")
     enriched_nps = assign_domains(enriched_nps)
-    
+    # copy admin_org_name to administering org
+    enriched_nps['ADMINISTERING_ORG'] = enriched_nps['ADMIN_ORG_NAME']
     logger.info("   step 11/11 Save Result...")
     save_gdf_to_gdb(enriched_nps,
                     output_gdb_path,
@@ -274,7 +275,7 @@ def enrich_NPS_from_gdb(nps_gdb_path,
     nps = nps.to_crs(3310)
     show_columns(logger, nps, "nps")
 
-    enrich_NPS(nps, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
+    return enrich_NPS(nps, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
 
 
 def enrich_NPS_from_arcgis(nps_feature_layer_url,
