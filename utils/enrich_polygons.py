@@ -299,7 +299,7 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
     
     logger.info("            enrich step 18/32 feature to point")
     wui_centroids_gdf = wui_input_gdf.copy()
-    wui_centroids_gdf['geometry'] = wui_input_gdf.geometry.centroid
+    wui_centroids_gdf['geometry'] = wui_input_gdf.representative_point() # changed to representative point to align
 
     logger.info("            enrich step 19/32 setup ORIG_FID")
     wui_centroids_gdf['ORIG_FID'] = wui_input_gdf.index

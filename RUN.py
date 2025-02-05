@@ -8,11 +8,12 @@ from enrich.enrich_BLM import enrich_BLM
 from enrich.enrich_NPS import enrich_NPS_from_gdb
 
 a_reference_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\Interagency Tracking System.gdb"
-start_year, end_year = 2010, 2025
+start_year, end_year = 2020, 2025
 
 if __name__ == "__main__":
     process = psutil.Process(os.getpid())
-    """
+    
+
     cnra_input_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\2023\CNRA_2023\CNRA_Tracker_Data_Export_20241120.gdb"
     cnra_polygon_layer_name = "TREATMENT_POLY"
     cnra_line_layer_name = "TREATMENT_LINE"
@@ -35,12 +36,12 @@ if __name__ == "__main__":
                 end_year,
                 output_gdb_path,
                 output_layer_name)
-    
+
     blm_input_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\2023\BLM_2023\BLM_2010_2023_fromReisThomasViaUpload.gdb"
     blm_input_layer_name = "BLM_2010_2023_fromReisThomasViaUpload"
     output_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\ITSGDB_backup\tmp\BLM_{}_{}.gdb".format(start_year, end_year)
     output_layer_name = f"BLM_enriched_{datetime.today().strftime('%Y%m%d')}"
-    
+    """
     enrich_BLM(blm_input_gdb_path,
                blm_input_layer_name,
                a_reference_gdb_path,
@@ -50,12 +51,13 @@ if __name__ == "__main__":
                output_layer_name)
     """
 
-
+    
     nps_gdb_path = r'D:\WORK\wildfire\Interagency-Tracking-System\2023\NPS_2023\New_NPS_2023_20240625_ReisThomasViaUpload_1.gdb'
     nps_layer_name = 'NPS_2023_20240625_ReisThomasViaUpload2'
     output_gdb_path =  r"D:\WORK\wildfire\Interagency-Tracking-System\its\ITSGDB_backup\tmp\NPS_{}_{}.gdb".format(start_year, end_year)
     output_layer_name = f"NPS_enriched_{datetime.today().strftime('%Y%m%d')}"
-
+    
+    """
     enrich_NPS_from_gdb(nps_gdb_path,
                         nps_layer_name,
                         a_reference_gdb_path,
@@ -63,7 +65,7 @@ if __name__ == "__main__":
                         end_year,
                         output_gdb_path,
                         output_layer_name)
-
+    """
     # Get memory usage in bytes, convert to MB
     memory_usage = process.memory_info().rss / 1024 / 1024
     logger.info(f"Memory usage: {memory_usage:.2f} MB")

@@ -114,12 +114,14 @@ def prepare_activity_table(cnra_activities):
     
     # Define ifelse functions for various field calculations
     def ifelse_treatment_id(row):
-        # if row['TREATMENTID_'] is not None:
-        #    return row['TREATMENTID_']
+
         if row['TREATMENTID_LN'] is not None:
             return row['TREATMENTID_LN']
         if row['TREATMENTID_PT'] is not None:
             return row['TREATMENTID_PT']
+        if 'TREATMENTID_' in row.index:
+            if row['TREATMENTID_'] is not None: # TEST_CASE: logic in poly is different
+                return row['TREATMENTID_']
         return row['TREATMENTID_POLY']
     
     def ifelse_trmtid_user(id_val, alt_val):
@@ -225,8 +227,9 @@ def prepare_project_table(cnra_projects):
 
     logger.info("      step 7/17 calculate unique Project ID if null")
     project_table['PROJECTID_USER'] = project_table.apply(update_project_id, axis=1)
-    project_table['PROJECTID_USER'] = project_table['PROJECTID_USER'].str[:45] + '-CNRA'
-
+    project_table.loc[project_table['PROJECTID_USER'].notna(), 'PROJECTID_USER'] = \
+        project_table.loc[project_table['PROJECTID_USER'].notna(), 'PROJECTID_USER'].str[:45] + '-CNRA'
+    
     # Remove duplicates
     project_table = project_table.drop_duplicates(subset=['PROJECTID_USER'], keep='first')
     
@@ -309,7 +312,7 @@ def enrich_CNRA_features(
         activity_table,
         left_on='GlobalID_text',
         right_on='TREATMENTID_',
-        how='inner'
+        how='left' #‘inner' # change to left
     )
     
     merged_data = merged_data.drop_duplicates()
@@ -364,13 +367,6 @@ def enrich_CNRA_features(
     common_columns = list(set(standardized_features.columns) & set(cnra_flat_copy.columns))
     if 'geometry' not in common_columns:
         common_columns.append('geometry')
-    
-    # Create new GeoDataFrame with matching schema
-    standardized_features = gpd.GeoDataFrame(
-        cnra_flat_copy[common_columns],
-        geometry='geometry',
-        crs=standardized_features.crs
-    )
     
     # Create new GeoDataFrame with matching schema
     standardized_features = gpd.GeoDataFrame(
@@ -496,15 +492,15 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    cnra_input_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\2023\CNRA_2023\CNRA_Tracker_Data_Export_20241120.gdb"
-    cnra_polygon_layer_name = "TREATMENT_POLY"
-    cnra_line_layer_name = "TREATMENT_LINE"
-    cnra_point_layer_name = "TREATMENT_POINT"
-    cnra_project_polygon_layer_name = "PROJECT_POLY"
-    cnra_activity_layer_name = "ACTIVITIES"
-    a_reference_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\Interagency Tracking System.gdb"
+    cnra_input_gdb_path = "b_Originals/CNRA_Tracker_Data_UpdatedCM_20240827.gdb"
+    cnra_polygon_layer_name = "TREATMENT_POLY_20240827"
+    cnra_line_layer_name = "TREATMENT_LINE_20240827"
+    cnra_point_layer_name = "TREATMENT_POINT_20240827"
+    cnra_project_polygon_layer_name = "PROJECT_POLY_20240827"
+    cnra_activity_layer_name = "ACTIVITIES_20240827"
+    a_reference_gdb_path = "a_Reference.gdb"
     start_year, end_year = 2010, 2025
-    output_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\ITSGDB_backup\tmp\CNRA_{}_{}.gdb".format(start_year, end_year)
+    output_gdb_path = f"/tmp/CNRA_{start_year}_{end_year}.gdb"
     output_layer_name = f"CNRA_enriched_{datetime.today().strftime('%Y%m%d')}"
 
     enrich_CNRA(cnra_input_gdb_path,

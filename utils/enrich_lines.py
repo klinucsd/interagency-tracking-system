@@ -33,7 +33,7 @@ def enrich_lines(line_gdf, a_reference_gdb_path, start_year, end_year):
     # Step 1: Convert lines to points (centroids)
     logger.info("         enrich line step 1/4 convert to points")
     points_gdf = line_gdf.copy()
-    points_gdf.geometry = points_gdf.geometry.centroid
+    points_gdf.geometry = points_gdf.representative_point()
     
     # Step 2: Enrich points
     logger.info("         enrich line step 2/4 execute enrich_points...")
