@@ -6,7 +6,7 @@ import pandas as pd
 import geopandas as gpd
 import numpy as np
 
-from multiprocessing import Pool
+from multiprocessing import Pool, Manager
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -22,35 +22,53 @@ from utils.concurrent_join import split_gdf
 logger = logging.getLogger('utils.enrich_polygons')
 
 
-# Global variables
-in_polygons = None
-in_sum_features_filtered = None
-joined = None
+class shared_module:
+    def __init__(self):
+        self.in_polygons = None
+        self.in_sum_features_filtered = None
+        self.joined = None
 
-def init_globals(polygons_df, features_df, in_joined):
+    def set_poly(self, gdf):
+        self.in_polygons = gdf
+    
+    def set_sum_features(self, gdf):
+        self.in_sum_features_filtered = gdf
+
+    def set_joined(self, gdf):
+        self.joined = gdf
+
+#mgr = Manager()
+# tune this number down if you run into memory issue in parallel sjoin
+# note the smaller the chunk size, the longer memory overhead
+CHUNK_SIZE = 10000
+USE_MANAGER = False
+N_WORKERS = 4
+MANAGER = None
+SHARED_DATA = shared_module() #mgr.Namespace()
+
+def init_globals(features_df, in_joined):
     """Initialize global variables for multiprocessing"""
-    global in_polygons, in_sum_features_filtered, joined
-    in_polygons = polygons_df
-    in_sum_features_filtered = features_df
-    joined = in_joined
+    #SHARED_DATA.in_polygons =polygons_df
+    SHARED_DATA.in_sum_features_filtered = features_df
+    SHARED_DATA.joined = in_joined
+
 
 def process_group(idx):
     """Process a single group of joined features"""
-    global in_polygons, in_sum_features_filtered, joined
-    
-    group = joined[joined['Join_ID'] == idx]
+
+    group = SHARED_DATA.joined[SHARED_DATA.joined['Join_ID'] == idx]
     intersection_areas = []
     total_area = 0
     polygon_count = 0
     
     for index, row in group.iterrows():
         treatment_geom = row['geometry']
-        matching_features = in_sum_features_filtered.loc[in_sum_features_filtered['Id'] == row['Id'], 'geometry']
+        matching_features = SHARED_DATA.in_sum_features_filtered.loc[SHARED_DATA.in_sum_features_filtered['Id'] == row['Id'], 'geometry']
         
         if matching_features.empty:
             continue
             
-        veg_type_geom = in_sum_features_filtered.loc[in_sum_features_filtered['Id'] == row['Id'], 'geometry'].iloc[0]
+        veg_type_geom = SHARED_DATA.in_sum_features_filtered.loc[SHARED_DATA.in_sum_features_filtered['Id'] == row['Id'], 'geometry'].iloc[0]
         intersection_geom = treatment_geom.intersection(veg_type_geom)
         area_acres = intersection_geom.area * 0.000247105
         
@@ -82,36 +100,74 @@ def process_group(idx):
 
 def process_spatial_join_parallel(in_polygons_df, in_sum_features_filtered_df, n_processes=None):
     """Main function to process spatial join in parallel"""
-    global joined
-    
+
     # Perform the spatial join
-    logger.info(f"            enrich step 4/32 joining with board veg types")
+    logger.info(f"            enrich step 4/32 joining with broad veg types")
     joined = gpd.sjoin(in_sum_features_filtered_df, in_polygons_df, how='right', predicate='intersects')
     logger.info(f"               joined records: {joined.shape[0]}")
     show_columns(logger, joined, "joined")
 
-    # Get unique Join_IDs
-    unique_ids = joined['Join_ID'].unique()
+    if joined.shape[0] > CHUNK_SIZE:
+        chunks = split_gdf(joined, CHUNK_SIZE)
+        logger.info(f"               split sjoin gdf into {len(chunks)} chunks with {CHUNK_SIZE} records")
+        sjoined_list = []
 
-    # Initialize pool with globals
-    logger.info(f"            enrich step 5/32 concurrent calculate veg type for each polygon")
-    with Pool(processes=n_processes, 
-             initializer=init_globals, 
-             initargs=(in_polygons_df, in_sum_features_filtered_df, joined)) as pool:
+        for index, chunk in enumerate(chunks):
+            logger.info(f"            ================ processing sjoin chunk {index+1} ================")
+
+            unique_ids = chunk['Join_ID'].unique()
+            logger.info(f"            enrich step 5/32 concurrent calculate veg type for each polygon")
+
+            #if USE_MANAGER:
+            #    chunk = MANAGER.DataFrame(chunk)
+            #    in_sum_features_filtered_df = MANAGER.DataFrame(in_sum_features_filtered_df)
+
+            with Pool(processes=n_processes, 
+                initializer=init_globals, 
+                initargs=(in_sum_features_filtered_df, chunk)) as pool:
         
-        # Process groups in parallel
-        results = pool.map(process_group, unique_ids)
+                # Process groups in parallel
+                results = pool.map(process_group, unique_ids)
+            # Convert results to dictionary
+                
+
+            sjoined_chunk = dict(results)
+            sjoined_list.append(sjoined_chunk)
+            
+        # Update in_polygons with results
+        logger.info(f"            enrich step 6/32 assign veg type for each polygon")
+        for results_dict in sjoined_list:
+            for idx, data in results_dict.items():
+                    mask = in_polygons_df['Join_ID'] == idx
+                    in_polygons_df.loc[mask, 'BROAD_VEGETATION_TYPE'] = data['dominant_veg']
+                    in_polygons_df.loc[mask, 'sum_Area_ACRES'] += data['sum_Area_ACRES']
+                    in_polygons_df.loc[mask, 'Polygon_Count'] += data['Polygon_Count']
+
+
+    else:    
+        # Get unique Join_IDs
+        unique_ids = joined['Join_ID'].unique()
+
+
+        # Initialize pool with globals
+        logger.info(f"            enrich step 5/32 concurrent calculate veg type for each polygon")
+        with Pool(processes=n_processes, 
+                initializer=init_globals, 
+                initargs=(in_sum_features_filtered_df, joined)) as pool:
+            
+            # Process groups in parallel
+            results = pool.map(process_group, unique_ids)
+        
+        # Convert results to dictionary
+        results_dict = dict(results)
     
-    # Convert results to dictionary
-    results_dict = dict(results)
-    
-    # Update in_polygons with results
-    logger.info(f"            enrich step 6/32 assign veg type for each polygon")
-    for idx, data in results_dict.items():
-        mask = in_polygons_df['Join_ID'] == idx
-        in_polygons_df.loc[mask, 'BROAD_VEGETATION_TYPE'] = data['dominant_veg']
-        in_polygons_df.loc[mask, 'sum_Area_ACRES'] = data['sum_Area_ACRES']
-        in_polygons_df.loc[mask, 'Polygon_Count'] = data['Polygon_Count']
+        # Update in_polygons with results
+        logger.info(f"            enrich step 6/32 assign veg type for each polygon")
+        for idx, data in results_dict.items():
+            mask = in_polygons_df['Join_ID'] == idx
+            in_polygons_df.loc[mask, 'BROAD_VEGETATION_TYPE'] = data['dominant_veg']
+            in_polygons_df.loc[mask, 'sum_Area_ACRES'] += data['sum_Area_ACRES']
+            in_polygons_df.loc[mask, 'Polygon_Count'] += data['Polygon_Count']
     
     # Convert Polygon_Count column to integer type
     in_polygons_df['Polygon_Count'] = in_polygons_df['Polygon_Count'].astype(int)
@@ -145,18 +201,18 @@ def summarize_within(in_polygons, in_sum_features, group_field='WHR13NAME'):
     # Create a bounding box of `in_polygons`
     bbox = in_polygons.total_bounds  # [minx, miny, maxx, maxy]
 
-    logger.info(f"            enrich step 2/32 filter board veg types using the bounding box")
+    logger.info(f"            enrich step 2/32 filter broad veg types using the bounding box")
     # Filter `in_sum_features` using the bounding box
     in_sum_features_filtered = in_sum_features.cx[
         bbox[0]:bbox[2], bbox[1]:bbox[3]
     ]
 
-    logger.info(f"               original board veg type records: {in_sum_features.shape[0]} ")
-    logger.info(f"               filtered board veg type records: {in_sum_features_filtered.shape[0]} ")
+    logger.info(f"               original broad veg type records: {in_sum_features.shape[0]} ")
+    logger.info(f"               filtered broad veg type records: {in_sum_features_filtered.shape[0]} ")
     logger.info(f"               records for summary: {in_polygons.shape[0]}")
     
-    logger.info(f"            enrich step 3/32 determining board veg types")
-    in_polygons_updated = process_spatial_join_parallel(in_polygons, in_sum_features_filtered)
+    logger.info(f"            enrich step 3/32 determining broad veg types")
+    in_polygons_updated = process_spatial_join_parallel(in_polygons, in_sum_features_filtered, n_processes=N_WORKERS)
     logger.info(f"               assigning vegetation types is completed")
     show_columns(logger, in_polygons_updated, "in_polygons_updated")
     logger.debug('-'*70)
@@ -165,9 +221,15 @@ def summarize_within(in_polygons, in_sum_features, group_field='WHR13NAME'):
     return in_polygons_updated
 
 
-def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
+def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year, manager=None):
 
     pd.options.display.float_format = '{:.15f}'.format
+
+    if manager:
+        global MANAGER, USE_MANAGER, SHARED_DATA
+        MANAGER = manager
+        SHARED_DATA = MANAGER.Namespace()
+        USE_MANAGER = True
     
     logger.info(f"      Executing Polygon Enrichments...")
 
@@ -199,19 +261,21 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
     enrich_input_without_values = enrich_in[enrich_in['BROAD_VEGETATION_TYPE'].isna()]
     enrich_in = enrich_input_without_values.copy()
     
-    trunk_size = 10000
-    if enrich_in.shape[0] > trunk_size:
-        estimated_time = int(enrich_in.shape[0] / 10000 * 60)
+    logger.info(f"            create numerical intermediate columns before multiprocessing")    
+    enrich_in['sum_Area_ACRES'] = 0
+    enrich_in['Polygon_Count'] = 0
+    if enrich_in.shape[0] > CHUNK_SIZE:
+        estimated_time = int(enrich_in.shape[0] / CHUNK_SIZE * 60)
         logger.info(
             f"                  "
             f"Summarizing veg types with {enrich_in.shape[0]} records "
             f"may take up to {estimated_time} minutes depending on the geometries."
         )
-        chunks = split_gdf(enrich_in, trunk_size)
-        logger.info(f"               split into {len(chunks)} chunks with {trunk_size} records")
+        chunks = split_gdf(enrich_in, CHUNK_SIZE)
+        logger.info(f"               split into {len(chunks)} chunks with {CHUNK_SIZE} records")
         enriched_list = []
         for index, chunk in enumerate(chunks):
-            logger.info(f"            ================ processing chuck {index+1} ================")
+            logger.info(f"            ================ processing chunk {index+1} ================")
             hash = hash_geodataframe(chunk)
             if os.path.exists(f"cache/{hash}.parquet"):
                 enriched_chunk = gpd.read_parquet(f"cache/{hash}.parquet")

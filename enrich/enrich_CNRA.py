@@ -119,9 +119,6 @@ def prepare_activity_table(cnra_activities):
             return row['TREATMENTID_LN']
         if row['TREATMENTID_PT'] is not None:
             return row['TREATMENTID_PT']
-        if 'TREATMENTID_' in row.index:
-            if row['TREATMENTID_'] is not None: # TEST_CASE: logic in poly is different
-                return row['TREATMENTID_']
         return row['TREATMENTID_POLY']
     
     def ifelse_trmtid_user(id_val, alt_val):
@@ -129,6 +126,11 @@ def prepare_activity_table(cnra_activities):
     
     # Apply the calculations
     activity_table['TREATMENTID_'] = activity_table.apply(ifelse_treatment_id, axis=1)
+
+    # UPDATE
+    # drop na in unique key
+    activity_table = activity_table.dropna(subset=['TREATMENTID_'])
+
     activity_table['TRMTID_USER'] = activity_table.apply(
         lambda x: ifelse_trmtid_user(x['TRMTID_USER'], x['ACTIVID_USER']), axis=1)
     activity_table['TRMTID_USER'] = activity_table.apply(
@@ -299,6 +301,11 @@ def enrich_CNRA_features(
     
     logger.info("   Part 1 Prepare Features")
     input_features = input_features.copy()
+
+    # UPDATE
+    # drop nan val in global id
+    input_features = input_features.dropna(subset=['GlobalID_text'])
+
     input_features['PROJECTID_USER'] = input_features['PROJECTID_USER'].astype(str).str[:45] + '-CNRA'
     input_features['TRMTID_USER'] = input_features['TRMTID_USER'].astype(str).str[:45] + '-CNRA'
     
@@ -312,7 +319,7 @@ def enrich_CNRA_features(
         activity_table,
         left_on='GlobalID_text',
         right_on='TREATMENTID_',
-        how='left' #‘inner' # change to left
+        how='inner'
     )
     
     merged_data = merged_data.drop_duplicates()
@@ -329,12 +336,17 @@ def enrich_CNRA_features(
     merged_data_no_geom = merged_data.drop(columns=['geometry'])
     project_table_no_geom = project_table.drop(columns=['geometry'])
 
+    # UPDATE
+    # may not need this step after changing merge condition to GlobalID
     # Get rid of duplicate PROJECTID_USER in project_data
-    project_table_no_geom = project_table_no_geom.drop_duplicates(subset=['PROJECTID_USER'], keep='first')
+    #project_table_no_geom = project_table_no_geom.drop_duplicates(subset=['PROJECTID_USER'], keep='first')
 
+    # UDPATE
+    # merge condition: PROJECT_USER has human error per CNRA admin, change to GlobalID instead
     cnra_flat = merged_data.merge(
         project_table_no_geom,
-        on='PROJECTID_USER',
+        left_on='GlobalID_text',
+        right_on='GlobalID',
         how='left'
     )
 

@@ -72,7 +72,8 @@ def enrich_USFS(usfs_gdb_path,
                 start_year,
                 end_year,
                 output_gdb_path,
-                output_layer_name):
+                output_layer_name,
+                manager = None):
 
     usfs_gdb_name = os.path.basename(usfs_gdb_path)        
     logger.info(f"Loading the USFS data into GeoDataFrames: {usfs_gdb_name} : {usfs_layer_name}")
@@ -131,12 +132,13 @@ def enrich_USFS(usfs_gdb_path,
     gdf = usfs[usfs['ACTIVITY_CODE'].isin(activity_codes)].copy()
     
     # Filter out specific conditions for activity codes
-    mask_1117 = ~((gdf['ACTIVITY_CODE'] == '1117') & (gdf['FUELS_KEYPOINT_AREA'] == '6'))
+    # changed from == to != in keypoint area code
+    mask_1117 = ~((gdf['ACTIVITY_CODE'] == '1117') & (gdf['FUELS_KEYPOINT_AREA'] != '6'))
     mask_1117_null = ~((gdf['ACTIVITY_CODE'] == '1117') & (gdf['FUELS_KEYPOINT_AREA'].isna()))
-    mask_1119 = ~((gdf['ACTIVITY_CODE'] == '1119') & (gdf['FUELS_KEYPOINT_AREA'] == '6'))
+    mask_1119 = ~((gdf['ACTIVITY_CODE'] == '1119') & (gdf['FUELS_KEYPOINT_AREA'] != '6'))
     mask_1119_null = ~((gdf['ACTIVITY_CODE'] == '1119') & (gdf['FUELS_KEYPOINT_AREA'].isna()))
-    mask_2510_6 = ~((gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] == '6'))
-    mask_2510_3 = ~((gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] == '3'))
+    mask_2510_6 = ~((gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] != '6'))
+    mask_2510_3 = ~((gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] != '3'))
     
     gdf = gdf[mask_1117 & mask_1117_null & mask_1119 & mask_1119_null & mask_2510_6 & mask_2510_3]
     
@@ -187,6 +189,8 @@ def enrich_USFS(usfs_gdb_path,
     gdf['ACTIVITY_END'] = gdf['DATE_COMPLETED']
     gdf.loc[gdf['ACTIVITY_END'].isna(), 'ACTIVITY_END'] = gdf['NEPA_SIGNED_DATE']
     
+
+    # TODO this need to be input year specific
     logger.info("   step 6/8 Calculating Status...")
     def get_status(row):
         if pd.notnull(row['DATE_COMPLETED']):
@@ -236,11 +240,12 @@ def enrich_USFS(usfs_gdb_path,
     logger.info("Remove Unnecessary Columns...")
     gdf = keep_fields(gdf)
 
+    #this line is probably not required in the current 
     logger.info(f"Select records between {start_year} and {end_year}...")
     gdf_filtered = gdf[(gdf['Year'] >= start_year) & (gdf['Year'] <= end_year)]
 
     logger.info("Enriching Dataset...")
-    enriched_gdf = enrich_polygons(gdf_filtered, a_reference_gdb_path, start_year, end_year)
+    enriched_gdf = enrich_polygons(gdf_filtered, a_reference_gdb_path, start_year, end_year, manager=manager)
 
     logger.info("Assign Domains...")
     enriched_gdf = assign_domains(enriched_gdf)

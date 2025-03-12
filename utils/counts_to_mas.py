@@ -27,7 +27,7 @@ def counts_to_mas(gdf, start_year, end_year):
  
     logger.info(f"            counts step 2/8: select by bounding years ({start_year}-{end_year})")
     gdf['ACTIVITY_END'] = pd.to_datetime(gdf['ACTIVITY_END'], errors='coerce')
-    mask_dates = (gdf['ACTIVITY_END'] >= f'{start_year}-01-01') & (gdf['ACTIVITY_END'] < f'{end_year+1}-01-01')
+    #mask_dates = (gdf['ACTIVITY_END'] >= f'{start_year}-01-01') & (gdf['ACTIVITY_END'] < f'{end_year+1}-01-01')
     
     logger.info("            counts step 3/8: set to 'YES' if activity description is in the list")
     qualifying_activities = ['BIOMASS_REMOVAL',
@@ -93,8 +93,8 @@ def counts_to_mas(gdf, start_year, end_year):
     excluded_agencies = ['BOF', 'OTHER']
     mask_agencies = ~gdf['ADMINISTERING_ORG'].isin(excluded_agencies)
     
-    final_mask = (mask_dates & mask_activities & mask_uom & mask_status & 
-                 mask_category & mask_pifirs & mask_parks & mask_usfs & mask_agencies)
+    final_mask = ( mask_activities & mask_uom & mask_status & 
+                 mask_category & mask_pifirs & mask_parks & mask_usfs & mask_agencies) #&mask_dates)  # remove dates
     
     gdf.loc[final_mask, 'COUNTS_TO_MAS'] = 'YES'
     
