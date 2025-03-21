@@ -132,15 +132,20 @@ def enrich_USFS(usfs_gdb_path,
     gdf = usfs[usfs['ACTIVITY_CODE'].isin(activity_codes)].copy()
     
     # Filter out specific conditions for activity codes
-    # changed from == to != in keypoint area code
-    mask_1117 = ~((gdf['ACTIVITY_CODE'] == '1117') & (gdf['FUELS_KEYPOINT_AREA'] != '6'))
-    mask_1117_null = ~((gdf['ACTIVITY_CODE'] == '1117') & (gdf['FUELS_KEYPOINT_AREA'].isna()))
-    mask_1119 = ~((gdf['ACTIVITY_CODE'] == '1119') & (gdf['FUELS_KEYPOINT_AREA'] != '6'))
-    mask_1119_null = ~((gdf['ACTIVITY_CODE'] == '1119') & (gdf['FUELS_KEYPOINT_AREA'].isna()))
-    mask_2510_6 = ~((gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] != '6'))
-    mask_2510_3 = ~((gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] != '3'))
-    
-    gdf = gdf[mask_1117 & mask_1117_null & mask_1119 & mask_1119_null & mask_2510_6 & mask_2510_3]
+
+    main_gdf = gdf[~gdf['ACTIVITY_CODE'].isin(['1117', '1119', '2510'])]
+    # only keep 1117 (Wildfire - natural ignition) where keypoint is 6 (fuels reduction program)
+
+    select_1117_6 = gdf[(gdf['ACTIVITY_CODE'] == '1117') & (gdf['FUELS_KEYPOINT_AREA'] == '6')]
+
+    # only keep 1119 (Planned Treatment Burned in Wildfire) where keypoint is 6 (fuels reduction program)
+    select_1119_6 = gdf[(gdf['ACTIVITY_CODE'] == '1119') & (gdf['FUELS_KEYPOINT_AREA'] == '6')]
+
+    # only keep 2510 where keypoint is 6 or 3
+    select_2150_6 = gdf[(gdf['ACTIVITY_CODE'] == '2150') & (gdf['FUELS_KEYPOINT_AREA'] == '6')]
+    select_2150_3 = gdf[(gdf['ACTIVITY_CODE'] == '2150') & (gdf['FUELS_KEYPOINT_AREA'] == '3')]
+
+    gdf = pd.concat([main_gdf, select_1117_6, select_1119_6, select_2150_3, select_2150_6])
     
     # Date filtering
     has_date = ~(gdf['DATE_COMPLETED'].isna() & gdf['DATE_AWARDED'].isna() & gdf['NEPA_SIGNED_DATE'].isna())

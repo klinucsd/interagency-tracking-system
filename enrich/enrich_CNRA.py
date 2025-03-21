@@ -304,7 +304,8 @@ def enrich_CNRA_features(
 
     # UPDATE
     # drop nan val in global id
-    input_features = input_features.dropna(subset=['GlobalID_text'])
+    # use globalid
+    input_features = input_features.dropna(subset=['GlobalID'])
 
     input_features['PROJECTID_USER'] = input_features['PROJECTID_USER'].astype(str).str[:45] + '-CNRA'
     input_features['TRMTID_USER'] = input_features['TRMTID_USER'].astype(str).str[:45] + '-CNRA'
@@ -317,9 +318,9 @@ def enrich_CNRA_features(
     # Merge features with activity table
     merged_data = input_features.merge(
         activity_table,
-        left_on='GlobalID_text',
+        left_on='GlobalID',
         right_on='TREATMENTID_',
-        how='inner'
+        how='left'
     )
     
     merged_data = merged_data.drop_duplicates()
@@ -345,7 +346,7 @@ def enrich_CNRA_features(
     # merge condition: PROJECT_USER has human error per CNRA admin, change to GlobalID instead
     cnra_flat = merged_data.merge(
         project_table_no_geom,
-        left_on='GlobalID_text',
+        left_on='PROJECTID',
         right_on='GlobalID',
         how='left'
     )
