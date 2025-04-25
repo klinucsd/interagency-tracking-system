@@ -131,10 +131,6 @@ def prepare_activity_table(cnra_activities):
     # drop na in unique key
     activity_table = activity_table.dropna(subset=['TREATMENTID_'])
 
-    activity_table['TRMTID_USER'] = activity_table.apply(
-        lambda x: ifelse_trmtid_user(x['TRMTID_USER'], x['ACTIVID_USER']), axis=1)
-    activity_table['TRMTID_USER'] = activity_table.apply(
-        lambda x: ifelse_trmtid_user(x['TRMTID_USER'], x['ACTIVITY_NAME']), axis=1)
     
     logger.info("      step 2/17 remove milliseconds from dates")
     # Convert and clean date fields
@@ -201,10 +197,7 @@ def prepare_activity_table(cnra_activities):
     activity_table = pd.concat([standardized_df, activity_table[common_columns]], ignore_index=True)
     show_columns(logger, activity_table, "activity_table")
     
-    logger.info("      step 5/17 calculate unique Treatment ID with postfix '-CNRA'")
-    activity_table.loc[activity_table['TRMTID_USER'].notna(), 'TRMTID_USER'] = \
-        activity_table.loc[activity_table['TRMTID_USER'].notna(), 'TRMTID_USER'].str[:45] + '-CNRA'
-        
+
     return activity_table
 
 
@@ -222,15 +215,10 @@ def prepare_project_table(cnra_projects):
         lambda x: 'CNRA' if x == 'CALFIRE' else x)
     
     # Update project ID
-    def update_project_id(row):
-        if pd.isna(row['PROJECTID_USER']) or row['PROJECTID_USER'].strip() == '':
-            return row['PROJECT_NAME']
-        return row['PROJECTID_USER']
-
     logger.info("      step 7/17 calculate unique Project ID if null")
-    project_table['PROJECTID_USER'] = project_table.apply(update_project_id, axis=1)
+    project_table['PROJECTID_USER'] = project_table['GlobalID']
     project_table.loc[project_table['PROJECTID_USER'].notna(), 'PROJECTID_USER'] = \
-        project_table.loc[project_table['PROJECTID_USER'].notna(), 'PROJECTID_USER'].str[:45] + '-CNRA'
+        project_table.loc[project_table['PROJECTID_USER'].notna(), 'PROJECTID_USER'] + '-CNRA'
     
     # Remove duplicates
     project_table = project_table.drop_duplicates(subset=['PROJECTID_USER'], keep='first')
@@ -307,11 +295,13 @@ def enrich_CNRA_features(
     # use globalid
     input_features = input_features.dropna(subset=['GlobalID'])
 
-    input_features['PROJECTID_USER'] = input_features['PROJECTID_USER'].astype(str).str[:45] + '-CNRA'
-    input_features['TRMTID_USER'] = input_features['TRMTID_USER'].astype(str).str[:45] + '-CNRA'
+    # not used in update
+    #input_features['PROJECTID_USER'] = input_features['PROJECTID_USER'].astype(str).str[:45] + '-CNRA'
+    #input_features['TRMTID_USER'] = input_features['TRMTID_USER'].astype(str).str[:45] + '-CNRA'
     
     # Part 2 Prepare Activity Table
     activity_table = prepare_activity_table(cnra_activities)
+    
     
     logger.info("   Part 3 - Combine CNRA Features and Activity Table")
     logger.info("      step 6/17 join polygon table and activity table")
@@ -322,7 +312,11 @@ def enrich_CNRA_features(
         right_on='TREATMENTID_',
         how='left'
     )
-    
+
+    # UPDATE: update TRMTID_USER as TREATMENTID_ for reports
+    logger.info("         calculate unique Treatment ID with postfix '-CNRA'")
+    merged_data['TRMTID_USER'] = merged_data['GlobalID'] + '-CNRA'
+        
     merged_data = merged_data.drop_duplicates()
     
     # Part 4 Prepare Project Table
@@ -337,11 +331,6 @@ def enrich_CNRA_features(
     merged_data_no_geom = merged_data.drop(columns=['geometry'])
     project_table_no_geom = project_table.drop(columns=['geometry'])
 
-    # UPDATE
-    # may not need this step after changing merge condition to GlobalID
-    # Get rid of duplicate PROJECTID_USER in project_data
-    #project_table_no_geom = project_table_no_geom.drop_duplicates(subset=['PROJECTID_USER'], keep='first')
-
     # UDPATE
     # merge condition: PROJECT_USER has human error per CNRA admin, change to GlobalID instead
     cnra_flat = merged_data.merge(
@@ -350,6 +339,18 @@ def enrich_CNRA_features(
         right_on='GlobalID',
         how='left'
     )
+
+
+    # UDPATE: update PROJECTID_USER as PROJECTID for reports
+    cnra_flat['PROJECTID_USER'] = cnra_flat['PROJECTID']
+    cnra_flat.loc[cnra_flat['PROJECTID_USER'].notna(), 'PROJECTID_USER'] = \
+        cnra_flat.loc[cnra_flat['PROJECTID_USER'].notna(), 'PROJECTID_USER'] + '-CNRA'
+    
+
+    print("!!!!")
+    print (len(cnra_flat['TRMTID_USER'].unique()))
+    print (len(cnra_flat['PROJECTID_USER'].unique()))
+    
 
     """
     # Perform the merge without geometries
