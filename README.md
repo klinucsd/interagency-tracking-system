@@ -45,10 +45,12 @@ The **Wildfire & Landscape Resilience Interagency Tracking System** is a compreh
    conda install -c conda-forge pyarrow
    ```
 
-2.4 Optionally install Jupyter
+2.4 Optionally install Jupyter and Dask-GeopandasPandas
    ```bash
    conda forge install jupyter
    pip install setuptools
+
+   conda install -c conda-forge dask-geopandas
    ```
 
 3. Pull the GDAL Docker image:
