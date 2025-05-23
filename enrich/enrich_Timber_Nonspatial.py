@@ -268,7 +268,15 @@ def enrich_Timber_Nonspatial(tn_input_excel_path,
     
     tn_df['LATITUDE'] = tn_df['ACTIVITY_DESCRIPTION'].map(lat_mapping)
     tn_df['LONGITUDE'] = tn_df['ACTIVITY_DESCRIPTION'].map(lon_mapping)
-    
+
+    #### NOT FINAL
+    # assign random lat lon within bbox if lat lon is None
+    lat_min, lat_max = min(lat_mapping.values()), max(lat_mapping.values())
+    lon_min, lon_max = min(lon_mapping.values()), max(lon_mapping.values())
+    tn_df.loc[tn_df.LATITUDE.isna(), 'LATITUDE'] = np.random.rand(sum(tn_df.LATITUDE.isna()))*(lat_max - lat_min) + lat_min
+    tn_df.loc[tn_df.LONGITUDE.isna(), 'LONGITUDE'] = np.random.rand(sum(tn_df.LONGITUDE.isna()))*(lon_min - lon_max) + lon_min
+
+
     # Convert to GeoDataFrame
     logger.info(f"   step 5/10 converting Table to Geodataframe")
     geometry = [Point(xy) for xy in zip(tn_df['LONGITUDE'], tn_df['LATITUDE'])]

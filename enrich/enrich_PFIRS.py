@@ -45,10 +45,10 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 PFIRS_COLUMNS = [
     'Acres_Approved', 'Acres_Burned', 'Acres_Requested', 'Active_On', 'Agency',
     'Air_Basin', 'Air_District', 'Approved_On', 'Aspect', 'Burn_Date', 'Burn_ID',
-    'Burn_Status', 'Burn_Type', 'Burn_Unit', 'Burner_Comments', 'Completed',
+    'Burn_Status', 'Burn_Type', 'Burn_Unit', 'Completed',
     'County', 'Cover_Type', 'Crossroads', 'Fuel_Type', 'LMA_Name', 'LMA_Unit',
     'Landowner', 'Last_Updated', 'Latitude', 'Legal_Location', 'Longitude',
-    'Max_Elevation', 'Min_Elevation', 'Mitigtations_Contingencies', 'Monitor_Name',
+    'Max_Elevation', 'Min_Elevation', 'Monitor_Name',
     'Monitored', 'OBJECTID', 'Out_On', 'Patrol_On', 'Requested_On', 'SMP', 'Slope',
     'Tons_per_Acre', 'Total_Tons', 'Unit_Acres', 'Unit_Description', 'geometry'
 ]
@@ -104,7 +104,7 @@ def enrich_PFIRS(pfirs_gdb_path,
     gdf['PROJECTID_USER'] = 'PFIRS-' + gdf.index.astype(str)
 
     # remap agency name 
-    gdf['AGENCY'] = gdf['AGENCY_'].apply(lambda x: pfirs_lookup_dict[x])
+    gdf['AGENCY'] = gdf['AGENCY_'].apply(lambda x: pfirs_lookup_dict.get(x, 'OTHER'))
     gdf['ORG_ADMIN_p'] = gdf['AGENCY']
     gdf['PROJECT_CONTACT'] = 'Jason Branz'
     gdf['PROJECT_EMAIL'] = 'jason.branz@arb.ca.gov'
@@ -169,7 +169,7 @@ def enrich_PFIRS(pfirs_gdb_path,
 
 
     # check if clipping polygon layer is provided
-    if treat_poly_gdf:
+    if treat_poly_gdf is not None:
         # Filter treatment polygons to only activity types that PFIRS duplicates
         rx_burns = treat_poly_gdf[treat_poly_gdf['ACTIVITY_DESCRIPTION'].isin(['BROADCAST_BURN', 'PILE_BURN'])]
         
@@ -180,7 +180,7 @@ def enrich_PFIRS(pfirs_gdb_path,
             treatment_subset = rx_burns[rx_burns.Year_txt == y]
             enriched_subset = enriched_gdf[enriched_gdf.Year_txt == y]
             # Spatial join to find intersecting points
-            intersecting = gpd.sjoin(enriched_subset, treatment_subset, how='inner', predicate='intersects')
+            intersecting = gpd.sjoin(enriched_subset, treatment_subset, how='inner', predicate='intersects', lsuffix='poly', rsuffix='pfirs')
             out_index += list(set(enriched_subset.index) - set(intersecting.index))
         
         enriched_gdf = enriched_gdf.loc[out_index]
