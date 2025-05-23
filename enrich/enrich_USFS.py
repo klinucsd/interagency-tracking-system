@@ -142,8 +142,8 @@ def enrich_USFS(usfs_gdb_path,
     select_1119_6 = gdf[(gdf['ACTIVITY_CODE'] == '1119') & (gdf['FUELS_KEYPOINT_AREA'] == '6')]
 
     # only keep 2510 where keypoint is 6 or 3
-    select_2150_6 = gdf[(gdf['ACTIVITY_CODE'] == '2150') & (gdf['FUELS_KEYPOINT_AREA'] == '6')]
-    select_2150_3 = gdf[(gdf['ACTIVITY_CODE'] == '2150') & (gdf['FUELS_KEYPOINT_AREA'] == '3')]
+    select_2150_6 = gdf[(gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] == '6')]
+    select_2150_3 = gdf[(gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] == '3')]
 
     gdf = pd.concat([main_gdf, select_1117_6, select_1119_6, select_2150_3, select_2150_6])
     

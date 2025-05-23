@@ -54,7 +54,7 @@ CALTRANS_TREE_ACTIVITY_COLUMNS = [
     'PRIMARY_FUNDING_SOURCE_NAME', 'PRIMARY_FUNDING_ORG_NAME',
     'SECONDARY_FUNDING_SOURCE_NAME', 'SECONDARY_FUNDING_ORG__NAME',
     'TERTIARY_FUNDING_SOURCE_NAME', 'TERTIARY_FUNDING_ORG_NAME',
-    'ADMINISTERING_ORG_NAME', 'IMPLEMENTING_ORG_NAME', 'ACTIVITY_DESC',
+    'ADMINISTERING_ORG_NAME', 'IMPLEMENTING_ORG_NAME',
     'Route_Num', 'Calendar_Year', 'District', 'Route_C'
 ]
 
@@ -69,13 +69,13 @@ CALTRANS_ROAD_ACTIVITY_COLUMNS = [
     'SECONDARY_FUNDING_ORG__NAME', 'TERTIARY_FUNDING_SOURCE_NAME',
     'TERTIARY_FUNDING_ORG_NAME', 'ADMINISTERING_ORG_NAME', 'IMPLEMENTING_ORG_NAME',
     'ACTIVITY_STATUS', 'BROAD_VEGETATION_TYPE', 'RESIDUE_QUANTITY', 'RESIDUE_FATE',
-    'ACTIVITY_PERCENT_COMPLETE', 'ActivityID', 'ACTIVITY_DESC', 'Calendar_Year',
+    'ACTIVITY_PERCENT_COMPLETE', 'ActivityID', 'Calendar_Year',
     'District', 'Route_C'
 ]
 
 CALTRANS_TREE_TREATMENT_COLUMNS = [
     'District_txt', 'District_num', 'County', 'Route_num', 'Route_txt',
-    'Route_suffix', 'Route_c', 'Highway_ID', 'FREQUENCY', 'SUM_Production_Quantity',
+    'Route_suffix', 'Highway_ID', 'FREQUENCY', 'SUM_Production_Quantity',
     'Ownership_Group', 'Primary_Objective', 'Secondary_Objective',
     'Tertiary_Objective', 'Estimated_Retreatment_Date', 'Treatment_Status',
     'Calendar_Year', 'Shape_Length', 'geometry'
@@ -83,7 +83,7 @@ CALTRANS_TREE_TREATMENT_COLUMNS = [
 
 CALTRANS_ROAD_TREATMENT_COLUMNS = [
     'District_txt', 'District_num', 'County', 'Route_num', 'Route_txt',
-    'Route_suffix', 'Route_c', 'Highway_ID', 'FREQUENCY', 'SUM_Production_Quantity',
+    'Route_suffix', 'Highway_ID', 'FREQUENCY', 'SUM_Production_Quantity',
     'Ownership_Group', 'Primary_Objective', 'Secondary_Objective',
     'Tertiary_Objective', 'Estimated_Retreatment_Date', 'Treatment_Status',
     'Calendar_Year', 'Shape_Length', 'geometry'
@@ -225,13 +225,51 @@ def enrich_Caltrans(caltrans_input_gdb_path,
     show_columns(logger, tree_treatments, "tree_treatments")
     """
 
+    # remap col name to ITS col names
+    activity_dict = {'Resp__District': 'Resp_District',
+                    'Route_Txt': 'Route_C',
+                    'Fiscal_Yr': 'Fiscal_Year',
+                    'Work_Begin_Date': 'WorkBeginDate',
+                    'Work_End_Date': 'WorkEndDate',
+                    'Activity_Name': 'ACTIVITY_NAME',
+                    'Primary_Funding_Source_Name': 'PRIMARY_FUNDING_SOURCE_NAME', 
+                    'Primary_Funding_Org_Name': 'PRIMARY_FUNDING_ORG_NAME',
+                    'Secondary_Funding_Source_Name': 'SECONDARY_FUNDING_SOURCE_NAME',
+                    'Secondary_Funding_Source_Org': 'SECONDARY_FUNDING_ORG__NAME',
+                    'Tertiary_Funding_Source_Name': 'TERTIARY_FUNDING_SOURCE_NAME', 
+                    'Tertiary_Funding_Org_Name': 'TERTIARY_FUNDING_ORG_NAME',
+                    'Administering_Org_Name': 'ADMINISTERING_ORG_NAME', 
+                    'Implementing_Org_Name': 'IMPLEMENTING_ORG_NAME', 
+                    'Activity_Status': 'ACTIVITY_STATUS',
+                    'Broad_Vegetation_Type': 'BROAD_VEGETATION_TYPE', 
+                    'Residue_Quantity': 'RESIDUE_QUANTITY', 
+                    'Residue_Fate': 'RESIDUE_FATE',
+                    'Activity_Percent_Complete': 'ACTIVITY_PERCENT_COMPLETE',
+                    'District_Num': 'District'}
+        
+    treatment_dict = {'Route': 'Route_num',
+                      'RouteS': 'Route_suffix',
+                      'District': 'District_num'}
+    
+
     logger.info("Load Caltrans road activity layer into a DataFrame")
     road_activities = gpd.read_file(caltrans_input_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *  FROM {road_activity_layer_name}")
+    road_activities = road_activities.rename(activity_dict, axis=1)
+
+    # create txt route field if not exist
+    if 'Route' not in road_activities.columns:
+        max_len = len(str(road_activities.Route_Num.max()))
+        road_activities['Route'] = road_activities['Route_Num'].apply(lambda x: '0'*(max_len-len(str(x))) + str(x))
+
+    
+
     verify_gdf_columns(road_activities, CALTRANS_ROAD_ACTIVITY_COLUMNS, logger)
     show_columns(logger, road_activities, "road_activities")
 
     logger.info("Load Caltrans road treatment layer into a GeoDataFrame")
     road_treatments = gpd.read_file(caltrans_input_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT * FROM {road_treatment_layer_name}")
+    road_treatments = road_treatments.rename(treatment_dict, axis=1)
+
     verify_gdf_columns(road_treatments, CALTRANS_ROAD_TREATMENT_COLUMNS, logger)
     road_treatments = road_treatments.to_crs(3310)
     show_columns(logger, road_treatments, "road_treatments")

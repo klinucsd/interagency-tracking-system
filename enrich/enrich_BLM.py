@@ -43,7 +43,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 BLM_COLUMNS = [
     'UNIQUE_ID', 'SYS_CD', 'SYS_TRTMNT_ID', 'TRTMNT_NM', 'TRTMNT_TYPE_CD',
     'TRTMNT_SUBTYPE', 'TRTMNT_START_DT', 'TRTMNT_END_DT', 'TRTMNT_COMMENTS',
-    'BLM_ACRES', 'GIS_ACRES', 'ADMIN_ST', 'OBJECTID', 'geometry',
+    'BLM_ACRES', 'GIS_ACRES', 'ADMIN_ST', 'geometry',
     # 'Tmp_Text_ca', 'Tmp_Long_ca', 'Tmp_Float_ca', 'Tmp_Date_ca', 'Comments_ca',
     # 'CREATE_DATE', 'CREATE_BY', 'MODIFY_DATE', 'MODIFY_BY', 'SHAPE_Length', 'SHAPE_Area',
 ]
@@ -60,7 +60,19 @@ def enrich_BLM(blm_gdb_path,
     logger.info("Load the BLM data into a GeoDataFrame")
     start = time.time()
     # blm = gpd.read_file(blm_gdb_path, driver="OpenFileGDB", layer=blm_layer_name)
-    blm = gpd.read_file(blm_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {blm_layer_name}")
+    try:
+        # TEMP: try block for new shapefile input
+        blm = gpd.read_file(blm_gdb_path)
+        remap_dict = {'SYS_TRTMNT':'SYS_TRTMNT_ID',
+        'TRTMNT_TYP':'TRTMNT_TYPE_CD',
+        'TRTMNT_SUB':'TRTMNT_SUBTYPE',
+        'TRTMNT_STA':'TRTMNT_START_DT',
+        'TRTMNT_END':'TRTMNT_END_DT',
+        'TRTMNT_COM':'TRTMNT_COMMENTS'
+        }
+        blm = blm.rename(remap_dict, axis=1)
+    except:
+        blm = gpd.read_file(blm_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {blm_layer_name}")
     logger.info(f"   time for loading {blm_layer_name}: {time.time()-start}")
     
     # validate the input data

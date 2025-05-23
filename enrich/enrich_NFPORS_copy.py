@@ -40,8 +40,7 @@ NFPORS_POLYGON_COLUMNS = [
     'act_comp_dt', 'nfporsfid', 'trt_id_db', 'type_name', 'cat_nm', 'trt_statnm',
     'col_methnm', 'plan_int_dt', 'unit_id', 'agency', 'trt_id', 'created_by', 'edited_by',
     'projectname', 'regionname', 'projectid', 'keypointarea', 'unitname', 'deptname',
-    'countyname', 'statename', 'regioncode', 'districtname', 'isbil', 'bilfunding',
-    'Shape_Length', 'Shape_Area', 'OBJECTID', 'geometry'
+    'countyname', 'statename', 'regioncode', 'districtname', 'isbil', 'bilfunding', 'geometry'
 ]
 
 
@@ -163,22 +162,13 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
     return nfpors_polygon_gdf
     
 
-def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name):
+def standardize_NFPORS_point(bia_fws_gdf, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name):
     """
     Standardize point features using GeoPandas
     """
     logger.info("Performing Points Standardization")
 
-    logger.info("   step 1/10 select BIA points in CA")
-    bia_pts_ca = bia_gdf[bia_gdf['statename'] == 'California'].copy()
-    logger.info(f"      BIA selected points has {len(bia_pts_ca)} records")
-    
-    logger.info("   step 2/10 select FWS points in CA")
-    fws_pts_ca = fws_gdf[fws_gdf['statename'] == 'California'].copy()
-    logger.info(f"      FWS selected points has {len(fws_pts_ca)} records")
-    
-    logger.info("   step 3/10 combine points layers")
-    combined_pts = pd.concat([bia_pts_ca, fws_pts_ca], ignore_index=True)
+    combined_pts = bia_fws_gdf[bia_fws_gdf['statename'] == 'California']
     logger.info(f"      appended points has {len(combined_pts)} records")
 
     logger.info("   step 4/10 rename and add fields")
@@ -279,10 +269,8 @@ def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year,
     return nfpors_point_gdf
 
 
-def enrich_NFPORS(nfpors_gdb_path,
-                  nfpors_polygon_layer_name,
-                  nfpors_bia_layer_name,
-                  nfpors_fws_layer_name,
+def enrich_NFPORS(nfpors_polygon_layer,
+                  nfpors_bia_fws_layer,
                   a_reference_gdb_path,
                   start_year,
                   end_year,
@@ -293,8 +281,19 @@ def enrich_NFPORS(nfpors_gdb_path,
     start = time.time()
 
     ### Load the polygon layer
-    nfpors_polygon = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nfpors_polygon_layer_name}")
-    logger.info(f"   time for loading {nfpors_polygon_layer_name}: {time.time()-start}")
+    nfpors_polygon = gpd.read_file(nfpors_polygon_layer)
+    nfpors_polygon.columns = [c.lower() for c in nfpors_polygon.columns]
+    remap_dict = {'plan_acc_a': 'plan_acc_ac',
+                'act_init_d': 'act_init_dt',
+                'act_comp_d': 'act_comp_dt',
+                'plan_int_d': 'plan_int_dt',
+                'projectnam': 'projectname',
+                'keypointar': 'keypointarea',
+                'districtna': 'districtname'
+                }
+    nfpors_polygon = nfpors_polygon.rename(remap_dict, axis=1)
+
+    logger.info(f"   time for loading {nfpors_polygon_layer}: {time.time()-start}")
     
     # validate the polygon data
     verify_gdf_columns(nfpors_polygon, NFPORS_POLYGON_COLUMNS, logger)
@@ -303,27 +302,47 @@ def enrich_NFPORS(nfpors_gdb_path,
     show_columns(logger, nfpors_polygon, "nfpors_polygon")
 
     ### Load the bia layer
-    nfpors_bia = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nfpors_bia_layer_name}")
-    logger.info(f"   time for loading {nfpors_bia_layer_name}: {time.time()-start}")
-    
-    # validate the bia data
-    verify_gdf_columns(nfpors_bia, NFPORS_BIA_COLUMNS, logger)
-    
-    nfpors_bia = nfpors_bia.to_crs(3310)
-    show_columns(logger, nfpors_bia, "nfpors_bia")
-
-    ### Load the fws layer
-    nfpors_fws = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nfpors_fws_layer_name}")
-    logger.info(f"   time for loading {nfpors_fws_layer_name}: {time.time()-start}")
-
-    # validate the fws data
-    verify_gdf_columns(nfpors_fws, NFPORS_FWS_COLUMNS, logger)
-    
-    nfpors_fws = nfpors_fws.to_crs(3310)
-    show_columns(logger, nfpors_fws, "nfpors_fws")
+    nfpors_bia_fws = gpd.read_file(nfpors_bia_fws_layer)
+    nfpors_bia_fws.columns = [c.lower() for c in nfpors_bia_fws.columns]
+    remap_dict={'treatmentn': 'treatmentname',
+        'districtna': 'districtname',
+        'representa': 'representative',
+        'keypointna': 'keypointname',
+        'initiatedf': 'initiatedfy',
+        'completedf': 'completedfy',
+        'plannedini': 'plannedinitiationdate',
+        'actualinit': 'actualinitiationdate',
+        'actualcomp': 'actualcompletiondate',
+        'categoryna': 'categoryname',
+        'plannedacc': 'plannedaccomplishment',
+        'fyaccompli': 'fyaccomplishment',
+        'totalaccom': 'totalaccomplishment',
+        'treatmentc': 'treatmentcreated',
+        'treatmentm': 'treatmentmodified',
+        'treatmenti': 'treatmentid',
+        'projectnam': 'projectname',
+        'activitytr': 'activitytreatapprvd',
+        'localapprv': 'localapprvdt',
+        'regionalap': 'regionalapprvdt',
+        'bureauappr': 'bureauapprvdt',
+        'plancontrc': 'plancontrcost',
+        'plandirect': 'plandirectcost',
+        'treatmento': 'treatmentowner',
+        'movedbetco': 'movedbetcondclassacres',
+        'treatmentl': 'treatmentlocalidentifier',
+        'obligation': 'obligationfiscalyear',
+        'iscomplete': 'iscompleted',
+        'bureaurecg': 'bureaurecguid',
+        'actualco_1': 'actualcompletionyear',
+        'activity_1': 'activitytreatmentnotes'}
+    nfpors_bia_fws = nfpors_bia_fws.rename(remap_dict, axis=1)
+    logger.info(f"   time for loading {nfpors_bia_fws_layer}: {time.time()-start}")
+  
+    nfpors_bia_fws = nfpors_bia_fws.to_crs(3310)
+  
 
     standardize_NFPORS_polygon(nfpors_polygon, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
-    standardize_NFPORS_point(nfpors_bia, nfpors_fws, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
+    standardize_NFPORS_point(nfpors_bia_fws, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
 
 
     

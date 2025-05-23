@@ -42,7 +42,7 @@ class shared_module:
 # note the smaller the chunk size, the longer memory overhead
 CHUNK_SIZE = 10000
 USE_MANAGER = False
-N_WORKERS = 4
+N_WORKERS = 1
 MANAGER = None
 SHARED_DATA = shared_module() #mgr.Namespace()
 
@@ -55,8 +55,11 @@ def init_globals(features_df, in_joined):
 
 def process_group(idx):
     """Process a single group of joined features"""
-
-    group = SHARED_DATA.joined[SHARED_DATA.joined['Join_ID'] == idx]
+    # TEMP fix for single process error
+    if N_WORKERS == 1:
+        group = SHARED_DATA.joined
+    else:
+        group = SHARED_DATA.joined[SHARED_DATA.joined['Join_ID'] == idx]
     intersection_areas = []
     total_area = 0
     polygon_count = 0
@@ -106,8 +109,8 @@ def process_spatial_join_parallel(in_polygons_df, in_sum_features_filtered_df, n
     joined = gpd.sjoin(in_sum_features_filtered_df, in_polygons_df, how='right', predicate='intersects')
     logger.info(f"               joined records: {joined.shape[0]}")
     show_columns(logger, joined, "joined")
-
-    if joined.shape[0] > CHUNK_SIZE:
+    # TEMP: disable chunking for single process
+    if joined.shape[0] > CHUNK_SIZE and N_WORKERS > 1:
         chunks = split_gdf(joined, CHUNK_SIZE)
         logger.info(f"               split sjoin gdf into {len(chunks)} chunks with {CHUNK_SIZE} records")
         sjoined_list = []
@@ -148,6 +151,18 @@ def process_spatial_join_parallel(in_polygons_df, in_sum_features_filtered_df, n
         # Get unique Join_IDs
         unique_ids = joined['Join_ID'].unique()
 
+        # if n_worker is set to 1, disable multiprocesssing and call function
+        if N_WORKERS == 1:
+            logger.info(f"            enrich step 5/32 concurrent calculate veg type for each polygon")
+            logger.info(f"            enrich step 5/32 MULTIPROCESSING DISABLED")
+            init_globals(in_sum_features_filtered_df, joined)
+            idx, data = process_group(unique_ids)
+            mask = in_polygons_df['Join_ID'] == idx
+            in_polygons_df.loc[mask, 'BROAD_VEGETATION_TYPE'] = data['dominant_veg']
+            in_polygons_df.loc[mask, 'sum_Area_ACRES'] += data['sum_Area_ACRES']
+            in_polygons_df.loc[mask, 'Polygon_Count'] += data['Polygon_Count']
+            in_polygons_df['Polygon_Count'] = in_polygons_df['Polygon_Count'].astype(int)
+            return in_polygons_df
 
         # Initialize pool with globals
         logger.info(f"            enrich step 5/32 concurrent calculate veg type for each polygon")

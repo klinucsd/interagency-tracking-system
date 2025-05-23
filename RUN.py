@@ -9,7 +9,7 @@ from multiprocessing.managers import BaseManager
 from multiprocessing import Manager
 
 a_reference_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\Interagency Tracking System.gdb"
-start_year, end_year = 2020, 2025
+start_year, end_year = 1950, 2025
 
 
 
@@ -21,36 +21,18 @@ start_year, end_year = 2020, 2025
 if __name__ == "__main__":
     process = psutil.Process(os.getpid())
     #BaseManager.register('DataFrame', MyDataFrame, DataFrameObjProxy, exposed=tuple(dir(DataFrameObjProxy)))
+    output_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\ITSGDB_backup\V2.0\USFS_{}_{}.gdb".format(start_year, end_year)
 
-  
+    from enrich.enrich_NFPORS_copy import enrich_NFPORS
 
-
-
-    from enrich.enrich_CNRA import enrich_CNRA
-
-    cnra_input_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\2023\CNRA_2023\CNRA_Tracker_Data_Export_20241120.gdb"
-    cnra_polygon_layer_name = "TREATMENT_POLY"
-    cnra_line_layer_name = "TREATMENT_LINE"
-    cnra_point_layer_name = "TREATMENT_POINT"
-    cnra_project_polygon_layer_name = "PROJECT_POLY"
-    cnra_activity_layer_name = "ACTIVITIES"
-    output_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\ITSGDB_backup\tmp\CNRA_{}_{}.gdb".format(start_year, end_year)
-    output_layer_name = f"CNRA_enriched_{datetime.today().strftime('%Y%m%d')}"
-
-
-    enrich_CNRA(cnra_input_gdb_path,
-            cnra_polygon_layer_name,
-            cnra_line_layer_name,
-            cnra_point_layer_name,
-            cnra_project_polygon_layer_name,
-            cnra_activity_layer_name,
-            a_reference_gdb_path,
-            start_year,
-            end_year,
-            output_gdb_path,
-            output_layer_name)
-
-    # Get memory usage in bytes, convert to MB
-    memory_usage = process.memory_info().rss / 1024 / 1024
-    logger.info(f"Memory usage: {memory_usage:.2f} MB")
-
+    nfpors_polygon_layer = r"D:\WORK\wildfire\Interagency-Tracking-System\V2.0\NFPORS_V2.0\NFPORS_V2.0_FTP_shp\NFPORS_V2.0_FTP.shp"
+    nfpors_bia_fws_layer = r"D:\WORK\wildfire\Interagency-Tracking-System\V2.0\NFPORS_V2.0\NFPORS_V2.0_BIA_FWS_shp\\NFPORS_V2.0_BIA_FWS.shp"
+    output_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\ITSGDB_backup\V2.0\NFPORS_{}_{}.gdb".format(start_year, end_year)
+    output_layer_name = f"NFPORS_enriched_{datetime.today().strftime('%Y%m%d')}"
+    enrich_NFPORS(nfpors_polygon_layer,
+                  nfpors_bia_fws_layer,
+                  a_reference_gdb_path,
+                  start_year,
+                  end_year,
+                  output_gdb_path,
+                  output_layer_name)

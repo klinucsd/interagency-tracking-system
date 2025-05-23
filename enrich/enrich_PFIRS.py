@@ -168,20 +168,22 @@ def enrich_PFIRS(pfirs_gdb_path,
     enriched_gdf = assign_domains(enriched_gdf)
 
 
-    # Filter treatment polygons to only activity types that PFIRS duplicates
-    rx_burns = treat_poly_gdf[treat_poly_gdf['ACTIVITY_DESCRIPTION'].isin(['BROADCAST_BURN', 'PILE_BURN'])]
-    
-    # Iterate through unique years to find intersecting duplicate treatment
-    out_index = []
-    for y in enriched_gdf.Year_txt.unique():
-        # Subset to year
-        treatment_subset = rx_burns[rx_burns.Year_txt == y]
-        enriched_subset = enriched_gdf[enriched_gdf.Year_txt == y]
-        # Spatial join to find intersecting points
-        intersecting = gpd.sjoin(enriched_subset, treatment_subset, how='inner', predicate='intersects')
-        out_index += list(set(enriched_subset.index) - set(intersecting.index))
-    
-    enriched_gdf = enriched_gdf.loc[out_index]
+    # check if clipping polygon layer is provided
+    if treat_poly_gdf:
+        # Filter treatment polygons to only activity types that PFIRS duplicates
+        rx_burns = treat_poly_gdf[treat_poly_gdf['ACTIVITY_DESCRIPTION'].isin(['BROADCAST_BURN', 'PILE_BURN'])]
+        
+        # Iterate through unique years to find intersecting duplicate treatment
+        out_index = []
+        for y in enriched_gdf.Year_txt.unique():
+            # Subset to year
+            treatment_subset = rx_burns[rx_burns.Year_txt == y]
+            enriched_subset = enriched_gdf[enriched_gdf.Year_txt == y]
+            # Spatial join to find intersecting points
+            intersecting = gpd.sjoin(enriched_subset, treatment_subset, how='inner', predicate='intersects')
+            out_index += list(set(enriched_subset.index) - set(intersecting.index))
+        
+        enriched_gdf = enriched_gdf.loc[out_index]
     
     logger.info("   step 8/8 Save Result...")
     save_gdf_to_gdb(enriched_gdf,

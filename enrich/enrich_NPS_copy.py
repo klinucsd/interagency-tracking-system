@@ -39,6 +39,13 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 # Suppress specific FutureWarning messages
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+NPS_COLUMNS = ['TreatmentI', 'LocalTreat', 'Treatmen_1', 'NWCGUnitID', 'ProjectID',
+       'TreatmentN', 'TreatmentC', 'TreatmentT', 'ActualComp', 'ActualCo_1',
+       'TreatmentA', 'GISAcres', 'TreatmentS', 'Treatmen_2', 'DateCurren',
+       'PublicDisp', 'DataAccess', 'UnitCode', 'UnitName', 'GroupCode',
+       'GroupName', 'RegionCode', 'CreateDate', 'CreateUser', 'LastEditDa',
+       'LastEditor', 'MapMethod', 'MapSource', 'SourceDate', 'XYAccuracy',
+       'Notes', 'EventID', 'GlobalID', 'geometry']
 
 NPS_COLUMNS = [
     'TreatmentID', 'LocalTreatmentID', 'TreatmentIdentifierDatabase',
@@ -113,7 +120,7 @@ def enrich_NPS(nps,
     logger.info("   step 1/11 select after 1995")
     
     # Convert ActualCompletionDate to datetime if it's not already
-    nps['ActualCompletionDate'] = pd.to_datetime(nps['ActualCompletionDate'], errors='ignore')#, unit='ms')
+    nps['ActualCompletionDate'] = pd.to_datetime(nps['ActualCompletionDate'], unit='ms')
     
     # Filter dates after 1995
     mask = (nps['ActualCompletionDate'] > '1995-01-01') | (nps['ActualCompletionDate'].isna())
@@ -128,14 +135,15 @@ def enrich_NPS(nps,
     show_columns(logger, nps_clip, "nps_clip")
     
     logger.info("   step 4/11 dissolve to implement multipart polygons")
-    dissolve_fields = [
-        "TreatmentID", "LocalTreatmentID", "TreatmentIdentifierDatabase",  "NWCGUnitID",  "ProjectID",  "TreatmentName",  "TreatmentCategory",
-        "TreatmentType",  "ActualCompletionDate",  "ActualCompletionFiscalYear",  "TreatmentAcres",  "GISAcres",  "TreatmentStatus",
-        "TreatmentNotes",  "DateCurrent",  "PublicDisplay",  "DataAccess",  "UnitCode",  "UnitName",  "GroupCode",  "GroupName",  "RegionCode",
-        "CreateDate",  "CreateUser",  "LastEditDate",  "LastEditor",  "MapMethod",  "MapSource",  "SourceDate",  "XYAccuracy",  "Notes",  "EventID"
-    ]
+    dissolve_fields = ['TreatmentI', 'LocalTreat', 'Treatmen_1', 'NWCGUnitID', 'ProjectID',
+       'TreatmentN', 'TreatmentC', 'TreatmentT', 'ActualComp', 'ActualCo_1',
+       'TreatmentA', 'GISAcres', 'TreatmentS', 'Treatmen_2', 'DateCurren',
+       'PublicDisp', 'DataAccess', 'UnitCode', 'UnitName', 'GroupCode',
+       'GroupName', 'RegionCode', 'CreateDate', 'CreateUser', 'LastEditDa',
+       'LastEditor', 'MapMethod', 'MapSource', 'SourceDate', 'XYAccuracy',
+       'Notes', 'EventID']
 
-    integer_fields = ["ProjectID", "ActualCompletionFiscalYear", "TreatmentAcres", "GISAcres", "DateCurrent", "CreateDate", "LastEditDate", "SourceDate"]
+    integer_fields = ["ProjectID", "ActualCo_1", "TreatmentA", "GISAcres", "DateCurren", "CreateDate", "LastEditDa", "SourceDate"]
     dissolved_gdf = dissolve_with_nulls(nps_clip, dissolve_fields, integer_fields)
     show_columns(logger, dissolved_gdf, "dissolved_gdf")
     
@@ -274,23 +282,6 @@ def enrich_NPS_from_gdb(nps_gdb_path,
     try:
         # TEMP: try block for new shapefile input
         nps = gpd.read_file(nps_gdb_path)
-
-        remap_dict = {'TreatmentI':'TreatmentID',
-            'LocalTreat':'LocalTreatmentID',
-            'Treatmen_1':'TreatmentIdentifierDatabase',
-            'TreatmentN':'TreatmentName',
-            'TreatmentC':'TreatmentCategory',
-            'TreatmentT':'TreatmentType',
-            'ActualComp':'ActualCompletionDate',
-            'ActualCo_1':'ActualCompletionFiscalYear',
-            'TreatmentA':'TreatmentAcres',
-            'TreatmentS':'TreatmentStatus',
-            'Treatmen_2':'TreatmentNotes',
-            'DateCurren':'DateCurrent',
-            'PublicDisp':'PublicDisplay',
-            'LastEditDa':'LastEditDate'
-            }
-        nps = nps.rename(remap_dict, axis=1)
     except:
         nps = gpd.read_file(nps_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nps_layer_name}")
     logger.info(f"   time for loading {nps_layer_name}: {time.time()-start}")

@@ -59,6 +59,8 @@ def enrich_Timber_Industry(ti_gdb_path,
     start = time.time()
     # ti = gpd.read_file(ti_gdb_path, driver="OpenFileGDB", layer=ti_layer_name)
     ti = gpd.read_file(ti_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {ti_layer_name}")
+    if 'Organization' not in ti.columns:
+        ti['Organization'] = ti['Org_Public']
     logger.info(f"   time for loading {ti_layer_name}: {time.time()-start}")
 
     # validate the input data
