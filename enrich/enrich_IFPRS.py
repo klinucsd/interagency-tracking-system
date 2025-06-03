@@ -84,7 +84,7 @@ def enrich_IFPRS(ifprs_gdb_path,
     logger.debug(f"      ifprs shape after filtering State by California: {ifprs.shape}")
 
     ifprs['Completion'] = pd.to_datetime(ifprs['Completion'], errors='coerce', utc=True)
-    ifprs = ifprs[ifprs['Completion'] > pd.Timestamp('2023-10-01', tz='UTC')]
+    ifprs = ifprs[ifprs['Completion'] >= pd.Timestamp('2023-10-01', tz='UTC')]
     ifprs = ifprs.to_crs(3310)
     logger.debug(f"      ifprs shape after filtering by 2023-10-01: {ifprs.shape}")
      
