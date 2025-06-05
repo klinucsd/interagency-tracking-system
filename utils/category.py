@@ -25,53 +25,49 @@ def categorize_activity(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         
         # Direct classifications
         direct_activities = {
-            'MECH_HFR', 'BENEFICIAL_FIRE', 'GRAZING', 'LAND_PROTEC',
-            'TIMB_HARV', 'TREE_PLNTING', 'WATSHD_IMPRV'
+            'MECH_HFR', 'PRESCRIBED_FIRE', 'GRAZING', 'LAND_PROTEC',  
+            'TIMB_HARV', 'TREE_PLNTING'
         }
         if Act in direct_activities:
             return Act
             
         # Mechanical Hazardous Fuel Reduction activities
         mech_hfr_activities = {
-            "BIOMASS_REMOVAL", "CHIPPING", "CHAIN_CRUSH", "DISCING",
-            "DOZER_LINE", "HANDLINE", "LANDING_TRT", "LOP_AND_SCAT",
-            "MASTICATION", "MOWING", "PILE_BURN", "PILING", "PRUNING",
-            'ROAD_CLEAR', "SLASH_DISPOSAL", "THIN_MAN", "THIN_MECH",
-            "TREE_RELEASE_WEED", "TREE_FELL", "UTIL_RIGHTOFWAY_CLR", "YARDING"
+            "WATSHD_IMPRV", "BIOMASS_REMOVAL", "CHIPPING", "CHAIN_CRUSH", "DISCING", "DOZER_LINE", "HANDLINE", 
+            "LANDING_TRT", "LOP_AND_SCAT", "MASTICATION", "MOWING", "PILING", "PRUNING", 'ROAD_CLEAR',  
+            "SLASH_DISPOSAL", "THIN_MAN", "THIN_MECH", "TREE_RELEASE_WEED", "TREE_FELL", "UTIL_RIGHTOFWAY_CLR", 
+            "YARDING", "PEST_CNTRL"
         }
         if Act in mech_hfr_activities:
             return "MECH_HFR"
             
         # Timber harvest activities
         timber_harvest_activities = {
-            "CLEARCUT", "COMM_THIN", "CONVERSION", "GRP_SELECTION_HARVEST",
-            "REHAB_UNDRSTK_AREA", "SEED_TREE_PREP_STEP", "SEED_TREE_REM_STEP",
-            "SEED_TREE_SEED_STEP", "SHELTERWD_PREP_STEP", "SHELTERWD_REM_STEP",
-            "SHELTERWD_SEED_STEP", "SINGLE_TREE_SELECTION", "SP_PRODUCTS",
-            "TRANSITION_HARVEST", "VARIABLE_RETEN_HARVEST", "SALVG_HARVEST",
-            "SANI_HARVEST"
+            "CLEARCUT", "COMM_THIN", "CONVERSION", "GRP_SELECTION_HARVEST", 
+            "REHAB_UNDRSTK_AREA", "SEED_TREE_PREP_STEP", "SEED_TREE_REM_STEP", "SEED_TREE_SEED_STEP", 
+            "SHELTERWD_PREP_STEP", "SHELTERWD_REM_STEP", "SHELTERWD_SEED_STEP", "SINGLE_TREE_SELECTION", 
+            "SP_PRODUCTS", "TRANSITION_HARVEST", "VARIABLE_RETEN_HARVEST"
         }
         if Act in timber_harvest_activities:
             return "TIMB_HARV"
         
         # Pest control logic
-        if not pd.isna(Act) and Act == "PEST_CNTRL":
-            return "SANI_SALVG" if Veg == "FOREST" else "WATSHD_IMPRV"
+        if Act in {"SALVG_HARVEST", 'SANI_HARVEST'}:
+            return "SANI_SALVG"
             
         # Watershed improvement activities
         if Act in {"INV_PLANT_REMOVAL", "ECO_HAB_RESTORATION"}:
-            return "WATSHD_IMPRV"
+            return "MECH_HFR"
             
         # Herbicide application logic
         if not pd.isna(Act) and Act == "HERBICIDE_APP":
             watershed_objectives = {
-                "BURNED_AREA_RESTOR", "CARBON_STORAGE", "ECO_RESTOR",
-                "HABITAT_RESTOR", "INV_SPECIES_CNTRL", "LAND_PROTECTION",
-                "MTN_MEADOW_RESTOR", "RIPARIAN_RESTOR", "WATSHD_RESTOR",
-                "WETLAND_RESTOR"
+                "BURNED_AREA_RESTOR", "CARBON_STORAGE", 
+                "ECO_RESTOR", "HABITAT_RESTOR", "INV_SPECIES_CNTRL", "LAND_PROTECTION", 
+                "MTN_MEADOW_RESTOR", "RIPARIAN_RESTOR", "WATSHD_RESTOR", "WETLAND_RESTOR"
             }
             if Obj in watershed_objectives:
-                return "WATSHD_IMPRV"
+                return "MECH_HFR"
                 
             tree_planting_objectives = {
                 "FOREST_PEST_CNTRL", "FOREST_STEWARDSHIP",
@@ -81,10 +77,9 @@ def categorize_activity(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
                 return "TREE_PLNTING"
                 
             mech_hfr_objectives = {
-                "BIOMASS_UTIL", "CULTURAL_BURN", "FIRE_PREVENTION",
-                "FUEL_BREAK", "NON-TIMB_PRODUCTS", "OTHER_FUELS_REDUCTION",
-                "PRESCRB_FIRE", "RECREATION", "ROADWAY_CLEARANCE",
-                "TIMBER_HARVEST", "UTIL_RIGHT_OF_WAY"
+                "BIOMASS_UTIL", "CULTURAL_BURN", 
+                "FIRE_PREVENTION", "FUEL_BREAK", "NON-TIMB_PRODUCTS", "OTHER_FUELS_REDUCTION", 
+                "PRESCRB_FIRE", "RECREATION", "ROADWAY_CLEARANCE", "TIMBER_HARVEST", "UTIL_RIGHT_OF_WAY"
             }
             if Obj in mech_hfr_objectives:
                 return "MECH_HFR"
@@ -94,8 +89,8 @@ def categorize_activity(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
             return "TREE_PLNTING"
             
         # Beneficial fire activities
-        if Act in {"BROADCAST_BURN", "PL_TREAT_BURNED", "WM_RESRC_BENEFIT"}:
-            return "BENEFICIAL_FIRE"
+        if Act in {"PILE_BURN", "BROADCAST_BURN", "PL_TREAT_BURNED", "WM_RESRC_BENEFIT", "BENEFICIAL_FIRE"}:
+            return "PRESCRIBED_FIRE"
             
         # Grazing activities
         if not pd.isna(Act) and Act == "PRESCRB_HERBIVORY":
@@ -111,7 +106,7 @@ def categorize_activity(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
             "OAK_WDLND_MGMT", "ROAD_OBLITERATION", "SEEDBED_PREP",
             "STREAM_CHNL_IMPRV", "WETLAND_RESTOR"
         }:
-            return "WATSHD_IMPRV"
+            return "MECH_HFR"
             
         # Default case
         return "NOT_DEFINED"

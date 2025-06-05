@@ -20,8 +20,6 @@ start_year, end_year = 1950, 2025
 
 if __name__ == "__main__":
     process = psutil.Process(os.getpid())
-    #BaseManager.register('DataFrame', MyDataFrame, DataFrameObjProxy, exposed=tuple(dir(DataFrameObjProxy)))
-    output_gdb_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\ITSGDB_backup\V2.0\USFS_{}_{}.gdb".format(start_year, end_year)
 
     from enrich.enrich_NFPORS_copy import enrich_NFPORS
 

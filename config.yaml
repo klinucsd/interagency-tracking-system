@@ -5,10 +5,10 @@ version: '1.0'
 # Global settings
 global:
   reference_gdb: "a_Reference.gdb"
-  date: "20241225"                     # may used as a part of the output layer name; use today if not setup
+  date: "20250603"                     # may used as a part of the output layer name; use today if not setup
   date_format: "%Y%m%d"
-  start_year: 2021
-  end_year: 2023
+  start_year: 1950
+  end_year: 2025
   overwrite: false                     # indicate whether overwrite the existing output layer
 
 # Data sources configuration

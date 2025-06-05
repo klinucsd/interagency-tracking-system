@@ -261,6 +261,14 @@ def enrich_NPS(nps,
     # copy admin_org_name to administering org
     # all ADMINISTERING_ORG will be assigned to as "NPS" in the end
     enriched_nps['ADMINISTERING_ORG'] = enriched_nps['ADMIN_ORG_NAME']
+
+
+
+    # fiscal cutoff for new IFPIRS 
+    # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
+    enriched_nps.loc[enriched_nps['ACTIVITY_START'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+
+
     logger.info("   step 11/11 Save Result...")
     save_gdf_to_gdb(enriched_nps,
                     output_gdb_path,
