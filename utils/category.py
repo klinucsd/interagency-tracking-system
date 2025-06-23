@@ -63,7 +63,8 @@ def categorize_activity(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         if not pd.isna(Act) and Act == "HERBICIDE_APP":
             watershed_objectives = {
                 "BURNED_AREA_RESTOR", "CARBON_STORAGE", 
-                "ECO_RESTOR", "HABITAT_RESTOR", "INV_SPECIES_CNTRL", "LAND_PROTECTION", 
+                # TEMP FIX for ECO_RESTOR in NFPORS "Ecological Restoration",
+                "ECO_RESTOR",  "HABITAT_RESTOR", "INV_SPECIES_CNTRL", "LAND_PROTECTION", 
                 "MTN_MEADOW_RESTOR", "RIPARIAN_RESTOR", "WATSHD_RESTOR", "WETLAND_RESTOR"
             }
             if Obj in watershed_objectives:
@@ -109,6 +110,8 @@ def categorize_activity(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
             return "MECH_HFR"
             
         # Default case
+        print(Act)
+        print(Obj)
         return "NOT_DEFINED"
     
     # Create a copy of the input GeoDataFrame

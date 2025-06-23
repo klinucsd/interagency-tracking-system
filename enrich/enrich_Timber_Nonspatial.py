@@ -185,6 +185,7 @@ def enrich_Timber_Nonspatial(tn_input_excel_path,
     tn_df['PRIMARY_FUNDING_SOURCE'] = 'PRIVATE'
     tn_df['PRIMARY_FUNDING_ORG'] = 'PRIVATE_INDUSTRY'
     tn_df['AGENCY'] = tn_df['ADMIN_ORG_NAME']
+    tn_df['ADMINISTERING_ORG'] = tn_df['ADMIN_ORG_NAME']
     tn_df['IMPLEMENTING_ORG'] = tn_df['ADMIN_ORG_NAME']
     tn_df['ORG_ADMIN_p'] = tn_df['ADMIN_ORG_NAME']
     tn_df['ORG_ADMIN_t'] = tn_df['ADMIN_ORG_NAME']

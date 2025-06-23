@@ -40,8 +40,7 @@ NFPORS_POLYGON_COLUMNS = [
     'act_comp_dt', 'nfporsfid', 'trt_id_db', 'type_name', 'cat_nm', 'trt_statnm',
     'col_methnm', 'plan_int_dt', 'unit_id', 'agency', 'trt_id', 'created_by', 'edited_by',
     'projectname', 'regionname', 'projectid', 'keypointarea', 'unitname', 'deptname',
-    'countyname', 'statename', 'regioncode', 'districtname', 'isbil', 'bilfunding',
-    'Shape_Length', 'Shape_Area', 'OBJECTID', 'geometry'
+    'countyname', 'statename', 'regioncode', 'districtname', 'isbil', 'bilfunding', 'geometry'
 ]
 
 
@@ -55,7 +54,7 @@ NFPORS_BIA_COLUMNS = [
     'regionalapprvdt', 'bureauapprvdt', 'unitofmeas', 'plancontrcost', 'plandirectcost',
     'treatmentowner', 'nepatype', 'movedbetcondclassacres', 'regioncode', 'projectid',
     'treatmentlocalidentifier', 'obligationfiscalyear', 'actualcompletionyear',
-    'activitytreatmentnotes', 'iswui', 'iscompleted', 'bureaurecguid', 'isbil', 'OBJECTID',
+    'activitytreatmentnotes', 'iswui', 'iscompleted', 'bureaurecguid', 'isbil',
     'geometry'
 ]
 
@@ -70,10 +69,9 @@ NFPORS_FWS_COLUMNS = [
     'regionalapprvdt', 'bureauapprvdt', 'unitofmeas', 'plancontrcost', 'plandirectcost',
     'treatmentowner', 'nepatype', 'movedbetcondclassacres', 'regioncode', 'projectid',
     'treatmentlocalidentifier', 'obligationfiscalyear', 'actualcompletionyear',
-    'activitytreatmentnotes', 'iswui', 'iscompleted', 'bureaurecguid', 'isbil', 'OBJECTID',
+    'activitytreatmentnotes', 'iswui', 'iscompleted', 'bureaurecguid', 'isbil',
     'geometry'
 ]
-
 
 def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name):
     """
@@ -153,6 +151,12 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
 
     logger.info("   step 10/11 assign Domains...")
     nfpors_polygon_gdf = assign_domains(nfpors_polygon_gdf)
+
+
+    # fiscal cutoff for new IFPIRS 
+    # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
+    #nfpors_polygon_gdf.loc[nfpors_polygon_gdf['ACTIVITY_START'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+
 
     logger.info("   step 11/11 Save enriched polygons...")
     save_gdf_to_gdb(nfpors_polygon_gdf,
@@ -270,6 +274,11 @@ def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year,
     logger.info("   step 9/10 assign Domains...")
     nfpors_point_gdf = assign_domains(nfpors_point_gdf)    
 
+    # fiscal cutoff for new IFPIRS 
+    # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
+    #nfpors_point_gdf.loc[nfpors_point_gdf['ACTIVITY_START'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+
+
     logger.info("   step 10/10 Save enriched points...")
     save_gdf_to_gdb(nfpors_point_gdf,
                     output_gdb_path,
@@ -293,9 +302,20 @@ def enrich_NFPORS(nfpors_gdb_path,
     start = time.time()
 
     ### Load the polygon layer
-    nfpors_polygon = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nfpors_polygon_layer_name}")
+    nfpors_polygon = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", layer=nfpors_polygon_layer_name)
     logger.info(f"   time for loading {nfpors_polygon_layer_name}: {time.time()-start}")
-    
+
+    # remap column names in 2024 dataset shp abbreviation
+    nfpors_polygon.columns = [c.lower() for c in nfpors_polygon.columns]
+    remap_dict = {'plan_acc_a': 'plan_acc_ac',
+                'act_init_d': 'act_init_dt',
+                'act_comp_d': 'act_comp_dt',
+                'plan_int_d': 'plan_int_dt',
+                'projectnam': 'projectname',
+                'keypointar': 'keypointarea',
+                'districtna': 'districtname'
+                }
+    nfpors_polygon = nfpors_polygon.rename(remap_dict, axis=1)
     # validate the polygon data
     verify_gdf_columns(nfpors_polygon, NFPORS_POLYGON_COLUMNS, logger)
     
@@ -303,24 +323,67 @@ def enrich_NFPORS(nfpors_gdb_path,
     show_columns(logger, nfpors_polygon, "nfpors_polygon")
 
     ### Load the bia layer
-    nfpors_bia = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nfpors_bia_layer_name}")
+    nfpors_bia = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", layer=nfpors_bia_layer_name)
     logger.info(f"   time for loading {nfpors_bia_layer_name}: {time.time()-start}")
+
+
+    ### if fws is not provided, assume bia/fws is contained in the same input dataset
+    if nfpors_fws_layer_name == None:
+
+        nfpors_bia.columns = [c.lower() for c in nfpors_bia.columns]
+        remap_dict={'treatmentn': 'treatmentname',
+            'districtna': 'districtname',
+            'representa': 'representative',
+            'keypointna': 'keypointname',
+            'initiatedf': 'initiatedfy',
+            'completedf': 'completedfy',
+            'plannedini': 'plannedinitiationdate',
+            'actualinit': 'actualinitiationdate',
+            'actualcomp': 'actualcompletiondate',
+            'categoryna': 'categoryname',
+            'plannedacc': 'plannedaccomplishment',
+            'fyaccompli': 'fyaccomplishment',
+            'totalaccom': 'totalaccomplishment',
+            'treatmentc': 'treatmentcreated',
+            'treatmentm': 'treatmentmodified',
+            'treatmenti': 'treatmentid',
+            'projectnam': 'projectname',
+            'activitytr': 'activitytreatapprvd',
+            'localapprv': 'localapprvdt',
+            'regionalap': 'regionalapprvdt',
+            'bureauappr': 'bureauapprvdt',
+            'plancontrc': 'plancontrcost',
+            'plandirect': 'plandirectcost',
+            'treatmento': 'treatmentowner',
+            'movedbetco': 'movedbetcondclassacres',
+            'treatmentl': 'treatmentlocalidentifier',
+            'obligation': 'obligationfiscalyear',
+            'iscomplete': 'iscompleted',
+            'bureaurecg': 'bureaurecguid',
+            'actualco_1': 'actualcompletionyear',
+            'activity_1': 'activitytreatmentnotes'}
+        nfpors_bia = nfpors_bia.rename(remap_dict, axis=1)
     
     # validate the bia data
     verify_gdf_columns(nfpors_bia, NFPORS_BIA_COLUMNS, logger)
+
+ 
     
     nfpors_bia = nfpors_bia.to_crs(3310)
     show_columns(logger, nfpors_bia, "nfpors_bia")
-
-    ### Load the fws layer
-    nfpors_fws = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nfpors_fws_layer_name}")
-    logger.info(f"   time for loading {nfpors_fws_layer_name}: {time.time()-start}")
-
-    # validate the fws data
-    verify_gdf_columns(nfpors_fws, NFPORS_FWS_COLUMNS, logger)
     
-    nfpors_fws = nfpors_fws.to_crs(3310)
-    show_columns(logger, nfpors_fws, "nfpors_fws")
+    if nfpors_fws_layer_name == None:
+        nfpors_fws =  pd.DataFrame(columns=nfpors_bia.columns)
+    else:
+        ### Load the fws layer
+        nfpors_fws = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", layer=nfpors_fws_layer_name)
+        logger.info(f"   time for loading {nfpors_fws_layer_name}: {time.time()-start}")
+
+        # validate the fws data
+        verify_gdf_columns(nfpors_fws, NFPORS_FWS_COLUMNS, logger)
+        
+        nfpors_fws = nfpors_fws.to_crs(3310)
+        show_columns(logger, nfpors_fws, "nfpors_fws")
 
     standardize_NFPORS_polygon(nfpors_polygon, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
     standardize_NFPORS_point(nfpors_bia, nfpors_fws, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)

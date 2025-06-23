@@ -83,9 +83,9 @@ def counts_to_mas(gdf, start_year, end_year):
     
     logger.info("            counts step 7/8: set to 'NO' if Agency is 'Other' and Admin is 'CARB'")
     # PFIRS modification
-    mask_pifirs = ~((gdf['AGENCY'] == 'OTHER') & (gdf['TRMTID_USER'].apply(lambda x: x[:5] == 'PFIRS' if isinstance(x, str) else False)))
+    mask_pifirs = ~((gdf['ADMINISTERING_ORG'] == 'OTHER') & (gdf['TRMTID_USER'].apply(lambda x: x[:5] == 'PFIRS' if isinstance(x, str) else False)))
 
-    mask_parks = ~((gdf['AGENCY'] == 'PARKS') & (gdf['TRMTID_USER'].apply(lambda x: x[:5] == 'PFIRS' if isinstance(x, str) else False)))
+    mask_parks = ~((gdf['ADMINISTERING_ORG'] == 'PARKS') & (gdf['TRMTID_USER'].apply(lambda x: x[:5] == 'PFIRS' if isinstance(x, str) else False)))
     
     logger.info("            counts step 8/8: set to 'NO' if Org is 'USFS' and Status is 'Active'")
     mask_usfs = ~((gdf['ADMINISTERING_ORG'] == 'USFS') & (gdf['ACTIVITY_STATUS'] == 'ACTIVE'))
