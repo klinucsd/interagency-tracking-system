@@ -105,6 +105,8 @@ def update_enriched_data(gdf):
     # Update COUNTS_TO_MAS field
     gdf['COUNTS_TO_MAS'] = 'YES'
 
+    gdf['ADMINISTERING_ORG'] = gdf['AGENCY']
+
     return gdf
 
 
@@ -317,6 +319,8 @@ def enrich_Timber_Nonspatial(tn_input_excel_path,
     logger.info("   step 6/10 Remove Unnecessary Columns...")
     gdf_dissolved = keep_fields(gdf_dissolved)
     show_columns(logger, gdf_dissolved, "gdf_dissolved")
+
+
     
     # Enrich points
     logger.info(f"   step 7/10 Enrich Points")
@@ -327,6 +331,7 @@ def enrich_Timber_Nonspatial(tn_input_excel_path,
     
     logger.info(f"   step 9/10 Assign Domains...")
     tn_enriched = assign_domains(tn_enriched)
+
     
     logger.info(f"   step 10/10 Save Result...")
     save_gdf_to_gdb(tn_enriched,
