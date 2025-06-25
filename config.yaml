@@ -5,6 +5,8 @@ version: '1.0'
 # Global settings
 global:
   reference_gdb: "a_Reference.gdb"
+  veg_own_gdb: "a_Reference.gdb"
+  veg_own_layer_name: "Own_Veg_Region_WUI"
   date: "20250603"                     # may used as a part of the output layer name; use today if not setup
   date_format: "%Y%m%d"
   start_year: 1950
@@ -101,6 +103,13 @@ sources:
     output:
       gdb_path: "/tmp/PFIRS_{start_year}_{end_year}.gdb"
       layer_name: "PFIRS_enriched_{date}"                  # output a polygon layer      
+
+appended:
+  type: "geodatabase"
+  gdb_path: "/tmp/appended.gdb"
+  point_layer_name: "appended_point"
+  line_layer_name: "appended_line"
+  polygon_layer_name: "appended_poly"
 
 footprint:
   gdb_path: "/tmp/ITS_Reports.gdb"
