@@ -280,7 +280,7 @@ def enrich_BLM(blm_gdb_path,
 
     # fiscal cutoff for new IFPIRS 
     # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
-    enriched_blm.loc[enriched_blm['ACTIVITY_START'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+    enriched_blm.loc[enriched_blm['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
 
     logger.info("   step 15/15 Save Result...")
     save_gdf_to_gdb(enriched_blm,

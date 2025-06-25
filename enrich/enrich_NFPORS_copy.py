@@ -156,7 +156,7 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
 
     # fiscal cutoff for new IFPIRS 
     # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
-    nfpors_polygon_gdf.loc[nfpors_polygon_gdf['ACTIVITY_START'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+    nfpors_polygon_gdf.loc[nfpors_polygon_gdf['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
 
     logger.info("   step 11/11 Save enriched polygons...")
     save_gdf_to_gdb(nfpors_polygon_gdf,
@@ -268,7 +268,7 @@ def standardize_NFPORS_point(bia_fws_gdf, a_reference_gdb_path, start_year, end_
 
     # fiscal cutoff for new IFPIRS 
     # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
-    nfpors_point_gdf.loc[nfpors_point_gdf['ACTIVITY_START'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+    nfpors_point_gdf.loc[nfpors_point_gdf['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
 
     logger.info("   step 10/10 Save enriched points...")
     save_gdf_to_gdb(nfpors_point_gdf,

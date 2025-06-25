@@ -266,7 +266,7 @@ def enrich_NPS(nps,
 
     # fiscal cutoff for new IFPIRS 
     # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
-    enriched_nps.loc[enriched_nps['ACTIVITY_START'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+    enriched_nps.loc[enriched_nps['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
 
 
     logger.info("   step 11/11 Save Result...")
