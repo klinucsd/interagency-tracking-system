@@ -115,6 +115,8 @@ footprint:
   gdb_path: "/tmp/ITS_Reports.gdb"
   report_layer_name: "Footprint_Report_{date}"
   point_layer_name: "Footprint_Point_{date}"
+  start_year: 2021
+  end_year: 2024
 
 
 
