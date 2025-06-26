@@ -47,7 +47,7 @@ The **Wildfire & Landscape Resilience Interagency Tracking System** is a compreh
 
 2.4 Optionally install Jupyter and Dask-GeopandasPandas
    ```bash
-   conda forge install jupyter
+   conda install conda-forge::notebook
    pip install setuptools
 
    conda install -c conda-forge dask-geopandas
