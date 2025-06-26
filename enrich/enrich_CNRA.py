@@ -397,6 +397,9 @@ def enrich_CNRA_features(
     # Convert to points if needed
     if feature_type == 'point' and not standardized_features.geom_type.eq('Point').all():
         standardized_features['geometry'] = standardized_features.geometry.centroid
+
+    
+    standardized_features.loc[standardized_features.ADMINISTERING_ORG == 'MRCA', 'ADMINISTERING_ORG'] = 'SMMC'
         
     logger.info("   Part 7 Calculate Board Vegetation Types, Ownership and Others ... ")    
     standardized_features = keep_fields(standardized_features)
