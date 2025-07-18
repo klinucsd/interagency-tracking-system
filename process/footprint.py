@@ -24,6 +24,9 @@ def buffer_overreport_poly(row):
      buffer polygons that have reported activity quantity larger than geometrical area
      buffer the polygon geometry to the reported acres by scaling to ratio
     """
+
+    # TODO: Keep GIS area take max of both
+
     if row.ACRE_RATIO <= 1:
         return row.geometry
     
@@ -244,14 +247,14 @@ def get_footprint(input_append_path,
         footprint_mask = joined_data[joined_data['ACTIVITY_QUANTITY_left'] < joined_data['ACTIVITY_QUANTITY_right']]['TRMTID_USER_left']
         
         # remove these non-qualifying treatments from footprint, essentially the same as taking max for overlapping
-        footpring_gdf = dissolved_cur_y.reset_index()
-        footpring_gdf = footpring_gdf[~footpring_gdf['TRMTID_USER'].isin(footprint_mask)]
+        footprint_gdf = dissolved_cur_y.reset_index()
+        footprint_gdf = footprint_gdf[~footprint_gdf['TRMTID_USER'].isin(footprint_mask)]
         
         ##############################################################################################################
 
         # dask spatial join to enrich vegetation, ownership, etc.
         # use representative point for faster sjoin
-        footprint_pts = footpring_gdf.copy()
+        footprint_pts = footprint_gdf.copy()
         footprint_pts.geometry = footprint_pts.representative_point()
         ddf = dask_geopandas.from_geopandas(footprint_pts, npartitions=16)
         # TODO: some points may fall outside of veg, ownership layer?

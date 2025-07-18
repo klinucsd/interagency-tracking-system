@@ -493,6 +493,8 @@ def update_activity_description(act):
     elif act == 'Yarding/Skidding':
         return 'YARDING'
     else:
+        print('FOUND TBD ACTIVITY DESCRIPTION:')
+        print(act)
         return 'TBD'
 
 

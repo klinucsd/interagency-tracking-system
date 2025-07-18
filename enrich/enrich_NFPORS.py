@@ -112,10 +112,7 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
     nfpors_polygon_gdf['ACTIVITY_UOM'] = 'AC'
     
     # Handle activity quantity
-    nfpors_polygon_gdf['ACTIVITY_QUANTITY'] = nfpors_polygon_gdf.apply(
-        lambda x: x['gis_acres'] if x['act_acc_ac'] == 0 else x['act_acc_ac'],
-        axis=1
-    )
+    nfpors_polygon_gdf['ACTIVITY_QUANTITY'] = nfpors_polygon_gdf['gis_acres']
     
     nfpors_polygon_gdf['ACTIVITY_START'] = nfpors_polygon_gdf['modifiedon']
     
@@ -153,10 +150,18 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
     nfpors_polygon_gdf = assign_domains(nfpors_polygon_gdf)
 
 
+    # UPDATE: FWS polygon record have faulty data that each part of a TRMTID_USER/PROJECTID_USER record 
+    # that is a multi-part polygon is being logged as a unique activity, but the ACTIVITY_QUANTITY is 
+    # being reported as the sum of the multipart polygon acres for each record rather than only that 
+    # part of the multipart polygon. 
+    # Solution: use polygon GIS area for ACTIVITY QUANTITY
+    nfpors_polygon_gdf['ACTIVITY_QUANTITY'] = nfpors_polygon_gdf['TREATMENT_AREA']
+    nfpors_polygon_gdf['AGENCY'] = 'DOI'
+
     # fiscal cutoff for new IFPIRS 
     # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
-    #nfpors_polygon_gdf.loc[nfpors_polygon_gdf['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
-
+    nfpors_polygon_gdf.loc[nfpors_polygon_gdf['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+    
 
     logger.info("   step 11/11 Save enriched polygons...")
     save_gdf_to_gdb(nfpors_polygon_gdf,
@@ -244,10 +249,9 @@ def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year,
         axis=1
     )
 
-    combined_pts['ACTIVITY_END'] = combined_pts.apply(
-        lambda x: handle_date(x['actualcompletiondate'], x['plannedinitiationdate']),
-        axis=1
-    )
+
+    # TODO: NA if not actual compeleted
+    combined_pts['ACTIVITY_END'] = combined_pts['actualcompletiondate']
     
     combined_pts['ACTIVITY_STATUS'] = 'Active'
     combined_pts['Source'] = 'nfpors_current_fy_treatments'
@@ -276,8 +280,9 @@ def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year,
 
     # fiscal cutoff for new IFPIRS 
     # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
-    #nfpors_point_gdf.loc[nfpors_point_gdf['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
-
+    nfpors_point_gdf.loc[nfpors_point_gdf['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+    # projects with no valid ACTIVITY_END don't count to mas
+    nfpors_point_gdf.loc[nfpors_point_gdf['ACTIVITY_END'] < f'1901-01-01', 'COUNTS_TO_MAS'] = 'NO'  
 
     logger.info("   step 10/10 Save enriched points...")
     save_gdf_to_gdb(nfpors_point_gdf,

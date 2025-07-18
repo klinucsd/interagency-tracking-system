@@ -104,6 +104,9 @@ def enrich_PFIRS(pfirs_gdb_path,
     gdf['PROJECTID_USER'] = 'PFIRS-' + gdf.index.astype(str)
 
     # remap agency name 
+
+    # not sure how AGENCY is None at end result but ORG_ADMIN_p, which is copy of AGENCY,
+    # is populated
     gdf['AGENCY'] = gdf['AGENCY_'].apply(lambda x: pfirs_lookup_dict.get(x, 'OTHER'))
     gdf['ORG_ADMIN_p'] = gdf['AGENCY']
     gdf['PROJECT_CONTACT'] = 'Jason Branz'
@@ -184,6 +187,9 @@ def enrich_PFIRS(pfirs_gdb_path,
             out_index += list(set(enriched_subset.index) - set(intersecting.index))
         
         enriched_gdf = enriched_gdf.loc[out_index]
+
+    # TEMP FIX: reassign AGENCY with ORG_ADMIN_p
+    enriched_gdf['AGENCY'] = enriched_gdf['ORG_ADMIN_p'] 
     
     logger.info("   step 8/8 Save Result...")
     save_gdf_to_gdb(enriched_gdf,
