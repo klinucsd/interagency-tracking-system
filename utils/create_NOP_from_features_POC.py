@@ -7,7 +7,7 @@ import timeit
 import time
 
 # Control flow parameters
-flag_run_main = True
+flag_run_main = False
 flag_piecemeal_plot = True
 
 # Initialize time tracking

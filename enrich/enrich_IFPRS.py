@@ -278,6 +278,9 @@ def enrich_IFPRS(ifprs_gdb_path,
     logger.info("   step 17/15 Assign Domains...")
     enriched_ifprs = assign_domains(enriched_ifprs)
 
+    # agency none temp fix
+    enriched_ifprs_["AGENCY"] = enriched_ifprs["ADMINISTERING_ORG"].apply(lambda x: "DOI" if x in ['FWS', 'BIA'] else x)
+
     logger.info("   step 18/15 Save Result...")
     save_gdf_to_gdb(enriched_ifprs,
                     output_gdb_path,
