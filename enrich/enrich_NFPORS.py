@@ -121,8 +121,16 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
         lambda x: x['act_comp_dt'] if pd.notnull(x['act_comp_dt']) else x['modifiedon'],
         axis=1
     )
+
+    def get_poly_status(status_col):
+        if status_col == "Accomplished":
+            return "COMPLETE"
+        elif status_col == "Initiated":
+            return "ACTIVE"
+        else:
+            return status_col
     
-    nfpors_polygon_gdf['ACTIVITY_STATUS'] = 'COMPLETE'
+    nfpors_polygon_gdf['ACTIVITY_STATUS'] = nfpors_polygon_gdf['trt_statnm'].apply(get_poly_status)
     nfpors_polygon_gdf['Source'] = 'nfpors_haz_fuels_treatments_reduction'
     nfpors_polygon_gdf['Crosswalk'] = nfpors_polygon_gdf['type_name']
     
@@ -253,7 +261,20 @@ def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year,
     # TODO: NA if not actual compeleted
     combined_pts['ACTIVITY_END'] = combined_pts['actualcompletiondate']
     
-    combined_pts['ACTIVITY_STATUS'] = 'Active'
+    # ACTIVITY_STATUS dependent on 3 planned date, actual start date, actual end date
+
+    # Default to have a valid planned date from source dataset
+
+    combined_pts['ACTIVITY_STATUS'] = 'PLANNED'
+    # Active filter
+    # NFPORS default NA for date is 1900-01-01
+    na_dt = pd.to_datetime('1901-01-01')
+    mask_active = combined_pts['actualinitiationdate'].apply(lambda x: pd.to_datetime(x).tz_localize(None) >= na_dt)
+    combined_pts.loc[mask_active, 'ACTIVITY_STATUS'] = 'ACTIVE'
+
+    # Complete filter
+    combined_pts.loc[combined_pts['iscompleted'] == '1', 'ACTIVITY_STATUS'] = 'COMPLETE'
+
     combined_pts['Source'] = 'nfpors_current_fy_treatments'
     combined_pts['Crosswalk'] = combined_pts['typename']
     combined_pts['TRMT_GEOM'] = 'POINT'
@@ -281,8 +302,7 @@ def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year,
     # fiscal cutoff for new IFPIRS 
     # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
     nfpors_point_gdf.loc[nfpors_point_gdf['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
-    # projects with no valid ACTIVITY_END don't count to mas
-    nfpors_point_gdf.loc[nfpors_point_gdf['ACTIVITY_END'] < f'1901-01-01', 'COUNTS_TO_MAS'] = 'NO'  
+
 
     logger.info("   step 10/10 Save enriched points...")
     save_gdf_to_gdb(nfpors_point_gdf,

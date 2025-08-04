@@ -6,8 +6,13 @@ import psutil
 import sys
 import math
 import logging
-from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
 from multiprocessing import Pool
+import random
+from shapely import Polygon, MultiPolygon
+from shapely import LineString
+from shapely.ops import unary_union, polygonize
+
 
 sys.path.append('../')
 
@@ -264,17 +269,30 @@ def get_NOP_recur(gdf1, gdf2):
 
 
 def get_NOP_mp(i):
-    logger.info(f"      processing item {i}")
     if len(INTERSECTION_LIST[i]) == 0:
-        logger.info(f"      completed item {i}")
-        return(GDF_CUR.iloc[[i]])
-    nop_cur = get_NOP_recur(GDF_CUR.iloc[[i]], INTERSECTION_LIST[i])
-    nop_cur = pd.concat(flatten(nop_cur)).drop_duplicates('geometry')
-    nop_cur = nop_cur[~np.isclose(nop_cur.area, 0)]
-
-    logger.info(f"      completed item {i}")
-
+        return(GDF_CUR.iloc[i].geometry)
+    #nop_cur = get_NOP_recur(GDF_CUR.iloc[[i]], INTERSECTION_LIST[i])
+    nop_cur = exterior_ring_reconstruction_NOP(pd.concat([GDF_CUR.iloc[[i]], INTERSECTION_LIST[i]]).geometry)
+    # drop area close to 0 non overlapping polygons
+    nop_cur = [pol for pol in nop_cur if not np.isclose(pol.area, 0)]
     return nop_cur
+
+
+
+def exterior_ring_reconstruction_NOP(shapely_arr_polygon):
+    #pair wise intersect and difference polygons
+    listpoly = flatten([[a.intersection(b), a.difference(b), b.difference(a)] 
+                        for a, b in itertools.combinations(shapely_arr_polygon, 2)])
+    # remove other geom type
+    listpoly = [pol for pol in listpoly if (isinstance(pol, Polygon) | isinstance(pol, MultiPolygon))]
+    # explode multi-polygon
+    listpoly_flat = flatten([pol if isinstance(pol, Polygon) else list(pol.geoms) for pol in listpoly])
+
+    # convert polygon to linestring rings
+    rings = [LineString(list(pol.exterior.coords)) for pol in listpoly_flat]
+    # union to get all polygons
+    union = unary_union(rings)
+    return [geom for geom in polygonize(union)]
 
 
 
@@ -330,6 +348,10 @@ def get_footprint(input_append_path,
         
         # make valid would split a invalid polygon to multiple valid polygons and convert to MultiPolygon type
         dissolved_cur_y.geometry = dissolved_cur_y.make_valid()
+        dissolved_cur_y = remove_duplicates(dissolved_cur_y)
+
+        dissolved_point = dissolved_cur_y.copy()
+        dissolved_point.geometry = dissolved_point.representative_point()
         
         ##############################################################################################################
         logger.info(f"      Multiprocessing NOP")
@@ -340,14 +362,21 @@ def get_footprint(input_append_path,
         global INTERSECTION_LIST
         INTERSECTION_LIST = get_interaction_list(GDF_CUR)
 
-        with Pool(processes=8) as pool:
-            # Process groups in parallel
-            results = pool.map(get_NOP_mp, range(len(GDF_CUR)))
+        idx_list = list(range(len(GDF_CUR)))
+        random.shuffle(idx_list)
+
+        # Process groups in parallel with tqdm for progress bar
+        # Shuffle index for normal distribution of difficult case
+        out = flatten(process_map(get_NOP_mp, idx_list, max_workers=8))
+        out_gdf = gpd.GeoDataFrame({'geometry': out})
+
+        out_gdf.crs = dissolved_point.crs
+
         
 
         
         # save to file
-        save_gdf_to_gdb(pd.concat(results, ignore_index=True), output_report_path, 'footprint' + y)
+        save_gdf_to_gdb(out_gdf, output_report_path, 'footprint' + y)
 
 
 
