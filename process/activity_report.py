@@ -1,5 +1,6 @@
 import geopandas as gpd
 import sys
+import yaml
 sys.path.append('../')
 
 from utils.save_gdf_to_gdb import save_gdf_to_gdb
@@ -9,6 +10,7 @@ def get_activity_report(enriched_points, enriched_lines, enriched_polygons):
     append_all = pd.concat([enriched_lines, enriched_points, enriched_polygons])
     append_all = append_all[(append_all['COUNTS_TO_MAS'] == 'YES')]
     
+    # 
     append_all.geometry = gpd.points_from_xy(append_all['LONGITUDE'],append_all['LATITUDE'])
     
     
@@ -36,7 +38,7 @@ def get_activity_report(enriched_points, enriched_lines, enriched_polygons):
     def get_entity_type(agency):
         if agency in ['CALEPA', 'CALSTA', 'CNRA', 'PARKS', 'California State Parks']:
             return 'State'
-        if agency in ['DOD', 'DOI', 'USDA', 'US Department of Energy', 'NPS']:
+        if agency in ['DOD', 'DOI', 'USDA', 'DOE', 'NPS']:
             return 'Federal'
         if agency in ['Industrial Timber', 'Timber Companies', 'TIMBER']:
             return 'Timber Companies'
@@ -50,19 +52,29 @@ def get_activity_report(enriched_points, enriched_lines, enriched_polygons):
 
 
 if __name__ == "__main__":
+
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
     
-    append_path = r"D:\WORK\wildfire\Interagency-Tracking-System\its\ITSGDB_backup\V2.0\appended.gdb"
-    report_path = r'D:\WORK\wildfire\Interagency-Tracking-System\its\ITSGDB_backup\V2.0\reports.gdb'
-    report_layer_name = f'activity_report{datetime.today().strftime('%Y%m%d')}'
+    append_path = config_inputs['appended']['gdb_path']
+    output_report_path = config_inputs['activity']['gdb_path']
+    # not formally used in report generation
+    # can limit activity year range for better front end display
+    start_year = config_inputs['activity']['start_year']
+    end_year = config_inputs['activity']['end_year']
+
+    output_format_dict = {'date': datetime.today().strftime('%Y%m%d')}
+    report_layer_name = config_inputs['activity']['report_layer_name'].format(**output_format_dict)
     
     
     enriched_polygons = gpd.read_file(append_path, driver='OpenFileGDB', layer='appended_poly')
     enriched_points = gpd.read_file(append_path, driver='OpenFileGDB', layer='appended_point')
     enriched_lines = gpd.read_file(append_path, driver='OpenFileGDB', layer='appended_line')
+
     
     activity_report_gdf = get_activity_report(enriched_points, enriched_lines, enriched_polygons)
     save_gdf_to_gdb(activity_report_gdf, 
-                report_path, 
+                output_report_path, 
                 report_layer_name)
     
     

@@ -13,7 +13,8 @@ import logging
 import time
 import psutil
 import os
-
+import yaml
+v
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -398,7 +399,7 @@ def enrich_CNRA_features(
     if feature_type == 'point' and not standardized_features.geom_type.eq('Point').all():
         standardized_features['geometry'] = standardized_features.geometry.centroid
 
-    
+    # MRCA reported activity should belong to SMMC
     standardized_features.loc[standardized_features.ADMINISTERING_ORG == 'MRCA', 'ADMINISTERING_ORG'] = 'SMMC'
         
     logger.info("   Part 7 Calculate Board Vegetation Types, Ownership and Others ... ")    
@@ -509,16 +510,23 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    cnra_input_gdb_path = "b_Originals/CNRA_Tracker_Data_UpdatedCM_20240827.gdb"
-    cnra_polygon_layer_name = "TREATMENT_POLY_20240827"
-    cnra_line_layer_name = "TREATMENT_LINE_20240827"
-    cnra_point_layer_name = "TREATMENT_POINT_20240827"
-    cnra_project_polygon_layer_name = "PROJECT_POLY_20240827"
-    cnra_activity_layer_name = "ACTIVITIES_20240827"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/CNRA_{start_year}_{end_year}.gdb"
-    output_layer_name = f"CNRA_enriched_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    cnra_input_gdb_path = config_inputs['cnra']['input']['gdb_path']
+    cnra_polygon_layer_name = config_inputs['cnra']['input']['polygon_layer_name']
+    cnra_line_layer_name = config_inputs['cnra']['input']['line_layer_name']
+    cnra_point_layer_name = config_inputs['cnra']['input']['point_layer_name']
+    cnra_project_polygon_layer_name = config_inputs['cnra']['input']['project_layer_name']
+    cnra_activity_layer_name =config_inputs['cnra']['input']['activity_layer_name']
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['cnra']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['cnra']['output']['layer_name'].format(**output_format_dict)
 
     enrich_CNRA(cnra_input_gdb_path,
                 cnra_polygon_layer_name,

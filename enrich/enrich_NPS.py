@@ -12,6 +12,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -340,14 +341,25 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    nps_gdb_path = 'b_Originals/New_NPS_2023_20240625_ReisThomasViaUpload_1.gdb'
-    nps_layer_name = 'NPS_2023_20240625_ReisThomasViaUpload2'
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    nps_gdb_path = config_inputs['nps']['input']['gdb_path'] 
+    nps_layer_name = config_inputs['nps']['input']['layer_name'] 
+    if nps_gdb_path[-3:] == 'shp':
+        nps_layer_name = None # if input file type is shapefile, then set layer name to None
+
     nps_arcgis_feature_url = None
     # nps_arcgis_feature_url = "https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/s_Completed_Perimeters_Past_5FY_View/FeatureServer/0"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/NPS_{start_year}_{end_year}.gdb"
-    output_layer_name = f"NPS_enriched_{datetime.today().strftime('%Y%m%d')}"
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['nps']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['nps']['output']['layer_name'].format(**output_format_dict)
+
 
     if nps_arcgis_feature_url:
         enrich_NPS_from_arcgis(nps_arcgis_feature_url,

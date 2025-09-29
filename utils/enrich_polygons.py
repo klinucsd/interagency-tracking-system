@@ -407,7 +407,7 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year, manag
         regions_layer = gpd.read_parquet("cache/WFRTF_Regions.parquet")
         logger.info("            Loaded WFRTF_Regions from cache")
     else:
-        regions_layer = gpd.read_file(a_reference_gdb_path, driver="OpenFileGDB", layer='WFRTF_Regions')
+        regions_layer = gpd.read_file(a_reference_gdb_path, driver="OpenFileGDB", layer='WFTF_Regions_Updated_20250708')
         regions_layer.to_parquet("cache/WFRTF_Regions.parquet")
         logger.info("            Loaded WFRTF_Regions from source and cached")
     logger.info(f"               time for loading WFRTF_Regions: {time.time()-start}")
@@ -425,7 +425,7 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year, manag
 
     logger.info("            enrich step 21/32 spatial join with regions layer")
     wui_centroids_ownership_regions = gpd.sjoin(wui_centroids_ownership, regions_layer, how="left", predicate="intersects")
-    wui_centroids_ownership_regions = wui_centroids_ownership_regions.drop(columns=['GIS_Acres', 'Shape_Area', 'Shape_Length'])
+    wui_centroids_ownership_regions = wui_centroids_ownership_regions.drop(columns=['Shape_Area', 'Shape_Length'])
     if "index_right" in wui_centroids_ownership_regions.columns:
         wui_centroids_ownership_regions = wui_centroids_ownership_regions.drop(columns=["index_right"])
 

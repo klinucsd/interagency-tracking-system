@@ -12,6 +12,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -344,11 +345,18 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    tn_input_excel_path = "b_Originals/Timber_Industry_Acres_2023_for_UCSD_20Sep2024.xlsx"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2021, 2025
-    output_gdb_path = f"/tmp/Timber_Nonspatial_{start_year}_{end_year}.gdb"
-    output_layer_name = f"Timber_Nonspatial_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    tn_input_excel_path = config_inputs['timber_industry_nonspatial']['input']['excel_path']
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['timber_industry_nonspatial']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['timber_industry_nonspatial']['output']['layer_name'].format(**output_format_dict)
     
     enrich_Timber_Nonspatial(tn_input_excel_path,
                              a_reference_gdb_path,

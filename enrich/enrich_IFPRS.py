@@ -12,6 +12,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -105,7 +106,7 @@ def enrich_IFPRS(ifprs_gdb_path,
     
     logger.info("   step 4/15 Transferring Values...")
     standardized_ifprs["PROJECTID_USER"] = standardized_ifprs["Name"].astype(str)
-    standardized_ifprs["AGENCY"] = standardized_ifprs["Agency"]
+    standardized_ifprs["AGENCY"] = "DOI"
     standardized_ifprs["ORG_ADMIN_p"] = standardized_ifprs["Agency"]
     standardized_ifprs["ORG_ADMIN_t"] = standardized_ifprs["Agency"]
     standardized_ifprs["ORG_ADMIN_a"] = standardized_ifprs["Agency"]
@@ -279,7 +280,7 @@ def enrich_IFPRS(ifprs_gdb_path,
     enriched_ifprs = assign_domains(enriched_ifprs)
 
     # agency none temp fix
-    enriched_ifprs_["AGENCY"] = enriched_ifprs["ADMINISTERING_ORG"].apply(lambda x: "DOI" if x in ['FWS', 'BIA'] else x)
+    enriched_ifprs["AGENCY"] = "DOI"
 
     logger.info("   step 18/15 Save Result...")
     save_gdf_to_gdb(enriched_ifprs,
@@ -291,12 +292,20 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    ifprs_input_gdb_path = "/home/klin/misc/test_its/IFPRS_20250328.gdb"
-    ifprs_input_layer_name = "ifprs_actual_treatment"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2023, 2025
-    output_gdb_path = f"/tmp/IFPRS_{start_year}_{end_year}.gdb"
-    output_layer_name = f"IFPRS_enriched_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    ifprs_input_gdb_path = config_inputs['ifprs']['input']['gdb_path']
+    ifprs_input_layer_name = config_inputs['ifprs']['input']['layer_name']
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['ifprs']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['ifprs']['output']['layer_name'].format(**output_format_dict)
+
 
     enrich_IFPRS(ifprs_input_gdb_path,
                  ifprs_input_layer_name,

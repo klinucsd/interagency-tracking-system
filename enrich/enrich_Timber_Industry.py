@@ -11,6 +11,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -196,12 +197,19 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    ti_input_gdb_path = "b_Originals/FFSC_MOU_2023_20240627_RebeccaFerkovichViaEmail.gdb"
-    ti_input_layer_name = "FFSC_MOU_IndustryOnly_Pol"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2021, 2023
-    output_gdb_path = f"/tmp/Timber_Industry_Spatial_{start_year}_{end_year}.gdb"
-    output_layer_name = f"Timber_Industry_Spatial_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    ti_input_gdb_path = config_inputs['timber_industry_spatial']['input']['gdb_path']
+    ti_input_layer_name = config_inputs['timber_industry_spatial']['input']['layer_name']
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['timber_industry_spatial']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['timber_industry_spatial']['output']['layer_name'].format(**output_format_dict)
     
     enrich_Timber_Industry(ti_input_gdb_path,
                            ti_input_layer_name,

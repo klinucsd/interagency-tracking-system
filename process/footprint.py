@@ -6,6 +6,12 @@ import psutil
 import sys
 import math
 import logging
+import yaml
+
+# currently require arcpy for nop 
+# WIP
+# need to be resolved to limit to geopandas environment in the future
+import arcpy
 sys.path.append('../')
 
 import dask_geopandas
@@ -165,11 +171,6 @@ def update_poly(enriched_polygons: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     
     
         
-
-    # scale up by centroid of polygon geometry if reported acre is larger than geometry area
-    final_gdf['ACRE_RATIO'] = final_gdf.ACTIVITY_QUANTITY* 4046.86/(final_gdf.geometry.area)
-    final_gdf.geometry = final_gdf.apply(buffer_overreport_poly, axis = 1)
-    final_gdf = final_gdf.drop('ACRE_RATIO', axis=1)
     
     
     logger.info(f"      final polygons: {final_gdf.shape}")
@@ -177,12 +178,27 @@ def update_poly(enriched_polygons: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return final_gdf
 
 
+def enrich_dissolved_columns(enrich_cols, df, dissolved_df):
+    df_max = df.sort_values('ACTIVITY_QUANTITY').drop_duplicates('TRMTID_USER', keep='last')
+    df_max = df_max.set_index(df_max['TRMTID_USER']).loc[dissolved_df.index, enrich_cols]
+    dissolved_df.loc[:, enrich_cols] = df_max
+    return dissolved_df
+
+# author: James Falter @ARB
+# Function to remove duplicate geometries with different coordinate vectors
+def remove_duplicates(gdf):
+    normalized_wkb = gdf.geometry.apply(lambda geom: geom.normalize().wkb)
+    unique_gdf = gdf.loc[~normalized_wkb.duplicated()].reset_index(drop=True)
+
+    return unique_gdf
+
 
 def get_footprint(input_append_path, 
                   enriched_point_layer_name,
                   enriched_line_layer_name,
                   enriched_polygon_layer_name,
                   output_report_path,
+                  temp_path,
                   veg_path,
                   veg_layer_name,
                   start_year,
@@ -196,6 +212,9 @@ def get_footprint(input_append_path,
     enriched_lines = gpd.read_file(input_append_path, driver='OpenFileGDB', layer=enriched_line_layer_name)
     enriched_polygons = gpd.read_file(input_append_path, driver='OpenFileGDB', layer=enriched_polygon_layer_name)
 
+    
+    enrich_cols = ['AGENCY', 'IN_WUI', 'PRIMARY_OWNERSHIP_GROUP', 'BROAD_VEGETATION_TYPE', 'REGION', 'COUNTY']
+
     # buffer data by activity quantity acre to the exact amount of acres
     buffered_pt = update_pt(enriched_points)
     buffered_ln = update_ln(enriched_lines)
@@ -204,8 +223,8 @@ def get_footprint(input_append_path,
     # process footprint by year
     # iterate through data from input start year to input end year
     for y in list(map(str, range(start_year, end_year+1))):
-        logger.info(f"      Processing footprint report for year {y}")
         poly_cur_y = buffered_poly[buffered_poly['Year_txt'] == y]
+        # put ln 
         ln_cur_y = buffered_ln[buffered_ln['Year_txt'] == y]
         pt_cur_y = buffered_pt[buffered_pt['Year_txt'] == y]
         
@@ -213,69 +232,110 @@ def get_footprint(input_append_path,
         # take reported value at face value
         # append later to final result
         timber_cur_y = pt_cur_y[pt_cur_y.AGENCY == 'TIMBER']
+        
+        # concat polygon and buffered points data
+        poly_pt = pd.concat([poly_cur_y, pt_cur_y[pt_cur_y.AGENCY != 'TIMBER']], ignore_index=True)
+        # find the union geometry
+        poly_pt_union_geom = poly_pt.dissolve().geometry[0]
+        # interesect line data with union(polygon, point) to find lines that have overlap with other data
+        intersect_mask = ln_cur_y.intersects(poly_pt_union_geom)
 
+
+        # find non-intersecting lines
+        ln_noi = ln_cur_y[~intersect_mask]
+        # dissolve by treatmentid and find max acre as footprint
+        dissolved_ln_noi = ln_noi[['TRMTID_USER', 'ACTIVITY_QUANTITY', 'geometry']].dissolve('TRMTID_USER', aggfunc='max')
+        # re-attach original cols
+        enrich_dissolved_columns(enrich_cols, ln_noi, dissolved_ln_noi)
+        # this will be directly used along with TIMBER in final footprint
+
+        # find interesecting lines
+        ln_intersect = ln_cur_y[intersect_mask]
+        # dissolve by treatmentid and find max acre as footprint
+        dissolved_ln_int = ln_intersect[['TRMTID_USER', 'ACTIVITY_QUANTITY', 'geometry']].dissolve('TRMTID_USER', aggfunc='max')
+        # re-attach original cols
+        enrich_dissolved_columns(enrich_cols, ln_intersect, dissolved_ln_int)
         
-        # concat enriched data together
-        footprint_cur_y = pd.concat([poly_cur_y, ln_cur_y, pt_cur_y[pt_cur_y.AGENCY != 'TIMBER']], ignore_index=True)
+        # find non intersecting area ratio and apply to treatment to approximate footprint
+        footprint_ln_int = dissolved_ln_int.ACTIVITY_QUANTITY*(dissolved_ln_int.difference(poly_pt_union_geom).area/dissolved_ln_int.area)
+        dissolved_ln_int['ACTIVITY_QUANTITY'] = footprint_ln_int
+        # this will be directly used along with TIMBER in final footprint
         
+        
+        # prep for NOP application for polygon and buffered points
         # drop unecessary fields, dissolve by treatment and take max activity quantity 
-        # 05/08/2025 UPDATE: subject to change
-        dissolved_cur_y = footprint_cur_y[['TRMTID_USER', 'ACTIVITY_QUANTITY', 'geometry']].dissolve('TRMTID_USER', aggfunc='max')
+        dissolved_cur_y = poly_pt[['TRMTID_USER', 'ACTIVITY_QUANTITY', 'geometry']].dissolve('TRMTID_USER', aggfunc='max')
         
-        # append the first instance of agency value to associated treatment id
-        # used later to manually assign onwership for caltrans data specifically
-        agency = footprint_cur_y.set_index(footprint_cur_y.TRMTID_USER).loc[dissolved_cur_y.index, 'AGENCY']
         
-        dissolved_cur_y['AGENCY'] = agency[~agency.index.duplicated()]
+        # append the max instance of enrich col value to associated treatment id
+        enrich_dissolved_columns(enrich_cols, poly_pt, dissolved_cur_y)
+
+        dissolved_cur_y = dissolved_cur_y.reset_index()
         
         # make valid would split a invalid polygon to multiple valid polygons and convert to MultiPolygon type
         dissolved_cur_y.geometry = dissolved_cur_y.make_valid()
         
-        # simplified SIG Meatball&Speghetti function
-        # use spatial join to rule out high overlapping
-        ##############################################################################################################
+        dissolved_cur_y = remove_duplicates(dissolved_cur_y)
+        
         
         # create "meatballs" by taking the representative point of footprint polygons
         dissolved_point = dissolved_cur_y.copy()
         dissolved_point.geometry = dissolved_point.representative_point()
         
-        # perform spatial join to find intersecting point/polygon
-        joined_data = gpd.sjoin(dissolved_point, dissolved_cur_y, how='left', predicate='intersects').reset_index()
-        
-        # for polygon with multiple overlapping points, find the Treatment ID of those points whose Activity Quantity
-        # is smaller than the polygon's Activity Quantity
-        footprint_mask = joined_data[joined_data['ACTIVITY_QUANTITY_left'] < joined_data['ACTIVITY_QUANTITY_right']]['TRMTID_USER_left']
-        
-        # remove these non-qualifying treatments from footprint, essentially the same as taking max for overlapping
-        footprint_gdf = dissolved_cur_y.reset_index()
-        footprint_gdf = footprint_gdf[~footprint_gdf['TRMTID_USER'].isin(footprint_mask)]
-        
-        ##############################################################################################################
+        save_gdf_to_gdb(dissolved_cur_y, temp_path, 'original'+y)
+        save_gdf_to_gdb(dissolved_cur_y[['geometry']].explode(), temp_path, 'spaghetti'+y)
+        save_gdf_to_gdb(dissolved_point, temp_path, 'meatball'+y)
+        save_gdf_to_gdb(pd.concat([timber_cur_y, dissolved_ln_int.reset_index(), dissolved_ln_noi.reset_index()], ignore_index=True), temp_path, 'timber'+y)
 
-        # dask spatial join to enrich vegetation, ownership, etc.
-        # use representative point for faster sjoin
-        footprint_pts = footprint_gdf.copy()
-        footprint_pts.geometry = footprint_pts.representative_point()
-        ddf = dask_geopandas.from_geopandas(footprint_pts, npartitions=16)
-        # TODO: some points may fall outside of veg, ownership layer?
-        footprint_enriched = ddf.sjoin(veg_gdf, how='inner', predicate='intersects').compute()
+    # arcpy process the nop
+    get_nop_arcpy(temp_path, start_year, end_year)
+    # back to geopandas to process final output
+    get_footprint_p2(output_report_path, temp_path, start_year, end_year)
+
+    # delete temp file
+    
+
+
+
+
+
+
+def get_nop_arcpy(temp_path, start_year, end_year):
+    for y in list(map(str, range(start_year, end_year+1))):
+        # create clean output file
+        Spaghetti_FeatureToPolygon = os.path.join(temp_path, "Spaghetti_FeatureToPolygon"+y)
+
+        # use arcpy feature to polygon tool to create non overlapping polygons
+        arcpy.management.FeatureToPolygon(
+            in_features=[os.path.join(temp_path, "spaghetti"+y)], 
+            out_feature_class=Spaghetti_FeatureToPolygon
+        )
+        # check results
+        result = arcpy.management.GetCount(Spaghetti_FeatureToPolygon)
+        print("{} has {} records".format(Spaghetti_FeatureToPolygon, result[0]))
+
+
+def get_footprint_p2(report_path, temp_path, start_year, end_year):
+    for y in list(map(str, range(start_year, end_year+1))):
+        # read in temp files
+        spaghetti = gpd.read_file(temp_path, driver='OpenFileGDB', layer='Spaghetti_FeatureToPolygon' + y)
+        dissolved_point = gpd.read_file(temp_path, driver='OpenFileGDB', layer='meatball' + y)
+        dissolved_cur_y = gpd.read_file(temp_path, driver='OpenFileGDB', layer='original' + y)
+        timber_cur_y = gpd.read_file(temp_path, driver='OpenFileGDB', layer='timber' + y)
         
-        # manually assign CALTRANS ownership to state
-        footprint_enriched.loc[footprint_enriched.AGENCY=='CALSTA', 'PRIMARY_OWNERSHIP_GROUP'] = 'STATE'
+        print('all file read')
         
-        # reassign the polygon geometry back to enriched footprint
-        footprint_enriched.geometry = footpring_gdf.geometry
-        # drop artifact columns
-        footprint_enriched = footprint_enriched.drop(['index_right', 'Shape_Length', 'Shape_Area'], axis=1)
-        
-        # assign timber 
-        timber_cur_y['WUI'] = 'Non-WUI'
-        
-        # append timber back to footprint
-        footprint_enriched = pd.concat([footprint_enriched, timber_cur_y[footprint_enriched.columns]])
-        
+        # keep all NOP by left join
+        footprint_temp = spaghetti.sjoin(dissolved_point, how='left', predicate='intersects').reset_index()
+        # keep max value of each NOP
+        footprint_temp = footprint_temp.dropna().sort_values('ACTIVITY_QUANTITY').drop_duplicates('TRMTID_USER', keep='last')
+        # find original geometry with treatment id
+        footprint_gdf = dissolved_cur_y.set_index('TRMTID_USER').loc[footprint_temp.TRMTID_USER].reset_index()
+        # concat with timber
+        footprint_enriched = pd.concat([footprint_gdf, timber_cur_y[footprint_gdf.columns]])
         # save to file
-        save_gdf_to_gdb(footprint_enriched, output_report_path, 'footprint' + y)
+        save_gdf_to_gdb(footprint_enriched, report_path, 'Footprint_Report_'+ y)
+
 
 
 
@@ -286,7 +346,6 @@ if __name__ == "__main__":
 
 
     # read file path from configuration yaml file
-    import yaml
     with open("..\config.yaml", 'r') as stream:
         config_inputs = yaml.safe_load(stream)
 
@@ -297,6 +356,7 @@ if __name__ == "__main__":
     output_report_path = config_inputs['footprint']['gdb_path']
     veg_path = config_inputs['global']['veg_own_gdb']
     veg_layer_name = config_inputs['global']['veg_own_layer_name']
+    temp_path = config_inputs['footprint']['temp_path']
     start_year = config_inputs['footprint']['start_year']
     end_year = config_inputs['footprint']['end_year']
 
@@ -305,6 +365,7 @@ if __name__ == "__main__":
                   enriched_line_layer_name,
                   enriched_polygon_layer_name,
                   output_report_path,
+                  temp_path,
                   veg_path,
                   veg_layer_name,
                   start_year,

@@ -11,6 +11,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -271,15 +272,26 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/USFS_{start_year}_{end_year}.gdb"
 
-    region_ids = ["04", "05", "06"]
-    for region_id in region_ids:    
-        usfs_input_gdb_path = f"b_Originals/USFS_FACTS_2023_20240620_uploadEmilyBrodie/Actv_CommonAttribute_PL_Region{region_id}.gdb"
-        usfs_input_layer_name = "Actv_CommonAttribute_PL"
-        output_layer_name = f"USFS_Region{region_id}_enriched_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    usfs_input_base_path = config_inputs['usfs']['input']['base_path'] 
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['usfs']['output']['gdb_path'].format(**output_format_dict)
+
+    region_ids = config_inputs['usfs']['input']['regions']
+    for region_id in region_ids: 
+        usfs_input_file_name = config_inputs['usfs']['input']['gdb_template'].format(**{'region', region_id})
+        usfs_input_gdb_path = os.path.join(usfs_input_base_path, usfs_input_file_name)
+        usfs_input_layer_name = config_inputs['usfs']['input']['layer_name']
+        output_format_dict['region'] = region_id
+        output_layer_name = config_inputs['usfs']['output']['layer_name'].format(**output_format_dict)
         enrich_USFS(usfs_input_gdb_path,
                     usfs_input_layer_name,
                     a_reference_gdb_path,

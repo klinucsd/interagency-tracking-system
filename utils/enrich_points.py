@@ -128,7 +128,7 @@ def enrich_points(points_gdf, a_reference_gdb_path, start_year, end_year):
         regions_gdf = gpd.read_parquet("cache/WFRTF_Regions.parquet")
     else:
         logger.info("            enrich step 9/16 loading WFRTF_Regions from source and cache the data")
-        regions_gdf = gpd.read_file(a_reference_gdb_path, driver="OpenFileGDB", layer='WFRTF_Regions')
+        regions_gdf = gpd.read_file(a_reference_gdb_path, driver="OpenFileGDB", layer='WFTF_Regions_Updated_20250708')
         regions_gdf.to_parquet("cache/WFRTF_Regions.parquet")
     logger.info(f"               time for loading WFRTF_Regions: {time.time()-start}")
     show_columns(logger, regions_gdf, "regions_gdf")

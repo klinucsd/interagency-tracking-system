@@ -13,6 +13,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -202,19 +203,30 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    pfirs_input_gdb_path = "b_Originals/PFIRS2023.gdb"
-    pfirs_input_layer_name = "PFIRS2023_20240624Pull"
-    treat_poly_gdf_path = ""
-    treat_poly_layer_name = ""
-    a_reference_gdb_path = "a_Reference.gdb"
-    lookup_table_path = r'D:\WORK\wildfire\Interagency-Tracking-System\2023\PFIRS_2023\pfirs_agency_2022_2023_AT.xlsx'
-    start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/PFIRS_{start_year}_{end_year}.gdb"
-    output_layer_name = f"PFIRS_enriched_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    pfirs_input_gdb_path = config_inputs['pfirs']['input']['gdb_path']
+    pfirs_input_layer_name = config_inputs['pfirs']['input']['layer_name']
+    treat_poly_gdb_path = config_inputs['appended']['gdb_path']
+    treat_poly_layer_name = config_inputs['appended']['polygon_layer_name']
+    # if appended polygons layer is not finished, leave this to None
+    treat_poly_gdf = gpd.read_file(treat_poly_gdb_path, driver="OpenFileGDB", layer=treat_poly_gdb_path)
+    lookup_table_path = config_inputs['pfirs']['input']['excel_path']
+
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['pfirs']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['pfirs']['output']['layer_name'].format(**output_format_dict)
+    
 
     enrich_PFIRS(pfirs_input_gdb_path,
                     pfirs_input_layer_name,
-                    None,
+                    treat_poly_gdf,
                     a_reference_gdb_path,
                     lookup_table_path,
                     start_year,

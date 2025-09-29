@@ -4,6 +4,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -419,14 +420,21 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    nfpors_input_gdb_path = "b_Originals/NFPORS_2023_20240624_ServiceDownload.gdb"
-    nfpors_polygon_layer_name = "NFPORS_2023_20240619_Fuel_Treatment_Polygons_ServiceDownload"
-    nfpors_bia_layer_name = "NFPORS_2023_20240619_Current_FY_Treatments_BIA_ServiceDownload"
-    nfpors_fws_layer_name = "NFPORS_2023_20240619_Current_FY_Treatments_FWS_ServiceDownload"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/NFPORS_{start_year}_{end_year}.gdb"
-    output_layer_name = f"NFPORS_enriched_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    nfpors_input_gdb_path = config_inputs['nfpors']['nfpors']['gdb_path']
+    nfpors_polygon_layer_name = config_inputs['nfpors']['nfpors']['polygon_layer']
+    nfpors_bia_layer_name = config_inputs['nfpors']['nfpors']['bia_layer']
+    nfpors_fws_layer_name = None # V2.0 fws and bia are provided in the same layer
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['nfpors']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['nfpors']['output']['layer_name'].format(**output_format_dict)
 
     enrich_NFPORS(nfpors_input_gdb_path,
                   nfpors_polygon_layer_name,

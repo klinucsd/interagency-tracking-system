@@ -11,6 +11,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -288,16 +289,24 @@ def enrich_Caltrans(caltrans_input_gdb_path,
 if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
+
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
     
-    caltrans_input_gdb_path = "b_Originals/Caltrans_Vegetation_Management_20_23.gdb"
-    tree_activity_layer_name = "Caltrans_Vegetation_Management_Trees_ActivitiesTable_20_23"
-    tree_treatment_layer_name = "Caltrans_Vegetation_Management_Trees_Treatments_20_23"
-    road_activity_layer_name = "Caltrans_Vegetation_Management_RoadsideLandscape_ActivitiesTable_20_23"
-    road_treatment_layer_name = "Caltrans_Vegetation_Management_RoadsideLandscape_Treatments_20_23"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2021, 2023
-    output_gdb_path = f"/tmp/CalTRANS_{start_year}_{end_year}.gdb"
-    output_layer_name = f"CalTRANS_enriched_{datetime.today().strftime('%Y%m%d')}"
+    caltrans_input_gdb_path = config_inputs['caltrans']['input']['gdb_path']
+    # tree layers are not used for this project for now
+    tree_activity_layer_name = None
+    tree_treatment_layer_name = None
+    road_activity_layer_name = config_inputs['caltrans']['input']['road_activity_layer_name_path']
+    road_treatment_layer_name = config_inputs['caltrans']['input']['road_treatment_layer_name']
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['caltrans']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['caltrans']['output']['layer_name'].format(**output_format_dict)
 
     enrich_Caltrans(caltrans_input_gdb_path,
                     tree_activity_layer_name,

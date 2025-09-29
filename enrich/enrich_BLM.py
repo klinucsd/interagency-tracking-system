@@ -12,6 +12,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -288,19 +289,30 @@ def enrich_BLM(blm_gdb_path,
                     output_layer_name,
                     group_name="c_Enriched")
     
+    # force release memory
+    # delete gdf
+    # garbage collection 
+    
+    
     
 if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    blm_input_gdb_path = "BLM_2010_2023_fromReisThomasViaUpload.gdb"
-    blm_input_layer_name = "BLM_2010_2023_fromReisThomasViaUpload"
-    blm_input_gdb_path = "b_Originals/BLM.gdb"
-    blm_input_layer_name = "BLM_20230813"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/BLM_{start_year}_{end_year}.gdb"
-    output_layer_name = f"BLM_enriched_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    blm_input_gdb_path = config_inputs['blm']['input']['gdb_path']
+    blm_input_layer_name = config_inputs['blm']['input']['layer_name']
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['blm']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['blm']['output']['layer_name'].format(**output_format_dict)
+
 
     enrich_BLM(blm_input_gdb_path,
                blm_input_layer_name,
