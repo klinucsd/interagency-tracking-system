@@ -1,6 +1,8 @@
 fiona
-GDAL
+GDAL==3.8.4
 geopandas
 openpyxl
 pandas
 pyogrio
+psutil
+pyarrow
