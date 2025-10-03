@@ -288,7 +288,7 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    ifprs_input_gdb_path = "/home/klin/misc/test_its/IFPRS_20250328.gdb"
+    ifprs_input_gdb_path = "IFPRS_20250328.gdb"
     ifprs_input_layer_name = "ifprs_actual_treatment"
     a_reference_gdb_path = "a_Reference.gdb"
     start_year, end_year = 2023, 2025
