@@ -7,9 +7,42 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 # Function to save a GeoDataFrame to a File Geodatabase
 def save_gdf_to_gdb(gdf, output_gdb, layer_name, group_name=None):
+    temp_geojson = "/tmp/temp_output.geojson"
+    gdf.to_file(temp_geojson, driver="GeoJSON")
+    
+    # Determine geometry type
+    geom_type = gdf.geometry.geom_type.unique()[0].upper()
+    geom_map = {
+        'POINT': 'POINT',
+        'MULTIPOINT': 'MULTIPOINT',
+        'LINESTRING': 'LINESTRING',
+        'MULTILINESTRING': 'MULTILINESTRING',
+        'POLYGON': 'POLYGON',
+        'MULTIPOLYGON': 'MULTIPOLYGON'
+    }
+    gdal_geom = geom_map.get(geom_type, 'UNKNOWN')
+    
+    cmd = [
+        "ogr2ogr",
+        "-f", "FileGDB",
+        output_gdb,
+        temp_geojson,
+        "-nlt", gdal_geom,
+        "-nln", layer_name,
+        "-overwrite"
+    ]
+    
+    # Use group_name if needed
+    # if group_name:
+    #     cmd.extend(["-lco", f"FEATURE_DATASET={group_name}"])
+    
+    subprocess.run(cmd, check=True)
+    os.remove(temp_geojson)
+
+# Function to save a GeoDataFrame to a File Geodatabase
+def save_gdf_to_gdb_2(gdf, output_gdb, layer_name, group_name=None):
     # Get the current user and group IDs
     user_id = os.getuid()
     group_id = os.getgid()
