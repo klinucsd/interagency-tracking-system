@@ -1,37 +1,86 @@
-FROM ubuntu:24.04
+FROM ubuntu:22.04
 
-# Install system dependencies, including gdal-bin, libgdal-dev, python3-pip, and Docker prerequisites
-RUN apt-get update && apt-get upgrade -y && apt-get install -y \
-    git wget unzip emacs-nox python3-venv python3-dev \
-    libproj-dev libgeos-dev libjson-c-dev libcurl4-gnutls-dev libsqlite3-dev \
-    libexpat-dev libxerces-c-dev libtiff-dev libpng-dev libjpeg-dev \
-    libwebp-dev libopenjp2-7-dev libcairo2-dev libpoppler-dev libpcre3-dev \
-    libnetcdf-dev libhdf5-dev libfyba-dev libkml-dev libzstd-dev liblerc-dev \
-    build-essential curl gnupg lsb-release \
-    gdal-bin libgdal-dev \
-    ca-certificates python3-pip && \
-    rm -rf /var/lib/apt/lists/*
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install Docker
-RUN mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-    $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin && \
-    rm -rf /var/lib/apt/lists/*
-
-# Modify /etc/init.d/docker to bypass ulimit error
-RUN sed -i 's/ulimit -Hn/#ulimit -Hn/' /etc/init.d/docker
-
-# Clone the repo
-RUN git clone https://github.com/klinucsd/interagency-tracking-system /app
-
+# Set working directory
 WORKDIR /app
 
-# Install Python libraries system-wide (GDAL Python bindings using system GDAL)
-RUN PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig pip3 install --no-cache-dir --break-system-packages gdal==$(gdal-config --version) --no-binary gdal && \
-    pip3 install --no-cache-dir --break-system-packages -r requirements.txt 
+# Install system dependencies including Python
+RUN apt-get update && apt-get install -y \
+    cmake \
+    build-essential \
+    libsqlite3-dev \
+    libproj-dev \
+    libtiff-dev \
+    libcurl4-openssl-dev \
+    libxml2-dev \
+    zlib1g-dev \
+    libssl-dev \
+    wget \
+    git \
+    unzip \
+    vim \
+    python3 \
+    python3-pip \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Default command: drop into a shell for interactive work
-CMD /bin/bash -c "service docker start && /bin/bash"
+# Download and install FileGDB API
+RUN cd /tmp && \
+    wget https://raw.githubusercontent.com/Esri/file-geodatabase-api/refs/heads/master/FileGDB_API_1.5.2/FileGDB_API-RHEL7-64gcc83.tar.gz && \
+    tar xfvz FileGDB_API-RHEL7-64gcc83.tar.gz && \
+    mv FileGDB_API-RHEL7-64gcc83 /opt/ && \
+    rm FileGDB_API-RHEL7-64gcc83.tar.gz
+
+# Remove incompatible libstdc++ from FileGDB
+RUN cd /opt/FileGDB_API-RHEL7-64gcc83/lib/ && \
+    mkdir -p backup && \
+    mv libstdc++* backup/ 2>/dev/null || true
+
+# Download and build GDAL with FileGDB support
+ENV FILEGDB_ROOT=/opt/FileGDB_API-RHEL7-64gcc83
+ENV LDFLAGS="-L${FILEGDB_ROOT}/lib -Wl,-rpath,${FILEGDB_ROOT}/lib"
+ENV CPPFLAGS="-I${FILEGDB_ROOT}/include"
+
+RUN cd /tmp && \
+    wget https://github.com/OSGeo/gdal/releases/download/v3.8.4/gdal-3.8.4.tar.gz && \
+    tar xfvz gdal-3.8.4.tar.gz && \
+    cd gdal-3.8.4 && \
+    mkdir -p build && \
+    cd build && \
+    cmake .. \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr/local \
+      -DFileGDB_ROOT=$FILEGDB_ROOT \
+      -DGDAL_USE_FILEGDB=ON \
+      -DCMAKE_INSTALL_RPATH="${FILEGDB_ROOT}/lib" \
+      -DCMAKE_BUILD_RPATH="${FILEGDB_ROOT}/lib" && \
+    make -j$(nproc) && \
+    make install && \
+    cd /tmp && \
+    rm -rf gdal-3.8.4*
+
+# Configure library path
+RUN echo "/opt/FileGDB_API-RHEL7-64gcc83/lib" > /etc/ld.so.conf.d/filegdb.conf && \
+    ldconfig
+
+# Clone the repository
+RUN git clone https://github.com/klinucsd/interagency-tracking-system.git /app/interagency-tracking-system
+
+# Set working directory to the cloned repo
+WORKDIR /app/interagency-tracking-system
+
+# Install Python requirements
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Verify GDAL installation
+RUN gdalinfo --version && \
+    ogrinfo --formats | grep -i "filegdb\|openfilegdb"
+
+# Set environment variables for runtime
+ENV LD_LIBRARY_PATH=/opt/FileGDB_API-RHEL7-64gcc83/lib:$LD_LIBRARY_PATH
+ENV PATH=/usr/local/bin:$PATH
+
+# Default command (you can override this)
+CMD ["/bin/bash"]
