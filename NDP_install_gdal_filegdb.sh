@@ -5,6 +5,20 @@ set -e
 
 echo "=== Installing GDAL with FileGDB API Support ==="
 
+# Check if GDAL is already installed
+echo "Checking for existing GDAL installation..."
+if command -v gdalinfo &> /dev/null; then
+    GDAL_VERSION=$(gdalinfo --version 2>&1 | head -n1)
+    echo "GDAL is already installed: $GDAL_VERSION"
+    echo "Skipping installation to avoid changing existing settings."
+    echo ""
+    echo "Current FileGDB driver status:"
+    ogrinfo --formats | grep -i "filegdb\|openfilegdb" || echo "FileGDB driver not found in current installation."
+    exit 0
+else
+    echo "GDAL not found. Proceeding with installation..."
+fi
+
 # Install dependencies
 echo "Step 1: Installing dependencies..."
 sudo apt-get update
