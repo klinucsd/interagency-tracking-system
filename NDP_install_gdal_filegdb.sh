@@ -5,9 +5,8 @@ set -e
 
 echo "=== Installing GDAL with FileGDB API Support ==="
 
-# Check if GDAL is already installed
 echo "Checking for existing GDAL installation..."
-if command -v gdalinfo &> /dev/null; then
+if command -v gdalinfo >/dev/null 2>&1; then
     GDAL_VERSION=$(gdalinfo --version 2>&1 | head -n1)
     echo "GDAL is already installed: $GDAL_VERSION"
     echo "Skipping installation to avoid changing existing settings."
