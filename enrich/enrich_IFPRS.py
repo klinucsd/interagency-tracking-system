@@ -28,7 +28,7 @@ from utils.assign_domains import assign_domains
 from utils.save_gdf_to_gdb import save_gdf_to_gdb
 
 logger = logging.getLogger('enrich.enrich_IFPRS')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # Suppress pyogrio INFO logs
 logging.getLogger("pyogrio").setLevel(logging.WARNING)
@@ -76,14 +76,14 @@ def enrich_IFPRS(ifprs_gdb_path,
     logger.debug(f"      ifprs shape: {ifprs.shape}")
     
     # Validate the input data
-    verify_gdf_columns(ifprs, IFPRS_COLUMNS, logger)
+    # verify_gdf_columns(ifprs, IFPRS_COLUMNS, logger)
 
     # Filter to California and post-10/1/2023 records
     logger.info("   Filtering to California and Completion after 2023-10-01...")
     ifprs = ifprs[ifprs['State'] == 'California']
     logger.debug(f"      ifprs shape after filtering State by California: {ifprs.shape}")
 
-    ifprs['Completion'] = pd.to_datetime(ifprs['Completion'], errors='coerce', utc=True)
+    ifprs['Completion'] = pd.to_datetime(ifprs['CompletionDate'], errors='coerce', utc=True)
     ifprs = ifprs[ifprs['Completion'] >= pd.Timestamp('2023-10-01', tz='UTC')]
     ifprs = ifprs.to_crs(3310)
     logger.debug(f"      ifprs shape after filtering by 2023-10-01: {ifprs.shape}")
@@ -105,7 +105,8 @@ def enrich_IFPRS(ifprs_gdb_path,
     
     logger.info("   step 4/15 Transferring Values...")
     standardized_ifprs["PROJECTID_USER"] = standardized_ifprs["Name"].astype(str)
-    standardized_ifprs["AGENCY"] = standardized_ifprs["Agency"]
+    # standardized_ifprs["AGENCY"] = standardized_ifprs["Agency"]
+    standardized_ifprs["AGENCY"] = "DOI"
     standardized_ifprs["ORG_ADMIN_p"] = standardized_ifprs["Agency"]
     standardized_ifprs["ORG_ADMIN_t"] = standardized_ifprs["Agency"]
     standardized_ifprs["ORG_ADMIN_a"] = standardized_ifprs["Agency"]
@@ -119,9 +120,13 @@ def enrich_IFPRS(ifprs_gdb_path,
     standardized_ifprs["ACTIVITY_NAME"] = standardized_ifprs["Name"]
     standardized_ifprs["BVT_USERD"] = "NO"
 
-    logger.debug("-"*70)
-    logger.debug(standardized_ifprs[["PROJECTID_USER", "PROJECT_NAME", "ACTIVITY_NAME"]])
+    # logger.debug("-"*70)
+    # logger.debug(standardized_ifprs[["PROJECTID_USER", "PROJECT_NAME", "ACTIVITY_NAME"]])
 
+    cols = ["AGENCY", "ORG_ADMIN_p", "ADMINISTERING_ORG", "IMPLEMENTING_ORG"]
+    missing_rows = standardized_ifprs[standardized_ifprs[cols].isna().any(axis=1)]
+    logger.debug(missing_rows)
+    
     logger.info("   step 5/15 Calculating Start and End Date...")
     def safe_date_convert(x):
         if pd.isna(x):
@@ -132,11 +137,11 @@ def enrich_IFPRS(ifprs_gdb_path,
             logger.error(f"      Problem converting date: {x}, Error: {e}")
             return None
 
-    standardized_ifprs["ACTIVITY_START"] = standardized_ifprs["Initiation"].apply(safe_date_convert)
+    standardized_ifprs["ACTIVITY_START"] = standardized_ifprs["InitiationDate"].apply(safe_date_convert)
     standardized_ifprs["ACTIVITY_END"] = standardized_ifprs["Completion"].apply(safe_date_convert)
 
-    logger.debug("-"*70)
-    logger.debug(standardized_ifprs[["ACTIVITY_START", "ACTIVITY_END"]])
+    # logger.debug("-"*70)
+    # logger.debug(standardized_ifprs[["ACTIVITY_START", "ACTIVITY_END"]])
 
     logger.info("   step 6/15 Calculating Status...")
     def map_status(status):
@@ -156,15 +161,15 @@ def enrich_IFPRS(ifprs_gdb_path,
             return gis_acres
         return total_acres
 
-    standardized_ifprs["TotalAcres"] = standardized_ifprs["Calculated"]
+    standardized_ifprs["TotalAcres"] = standardized_ifprs["CalculatedArea"]
     standardized_ifprs["ACTIVITY_QUANTITY"] = standardized_ifprs.apply(
         lambda row: calculate_quantity(row["TotalAcres"], row["Shape_Area"] / 4046.86), axis=1
     )
     standardized_ifprs["ACTIVITY_QUANTITY"] = standardized_ifprs["ACTIVITY_QUANTITY"].astype(float)
     standardized_ifprs["ACTIVITY_UOM"] = "AC"
 
-    logger.debug("-"*70)
-    logger.debug(standardized_ifprs[["TotalAcres", "Shape_Area", "ACTIVITY_QUANTITY"]])
+    # logger.debug("-"*70)
+    # logger.debug(standardized_ifprs[["TotalAcres", "Shape_Area", "ACTIVITY_QUANTITY"]])
 
     logger.info("   step 8/15 Enter Column Values...")
     standardized_ifprs["ADMIN_ORG_NAME"] = standardized_ifprs["Agency"]
@@ -173,6 +178,9 @@ def enrich_IFPRS(ifprs_gdb_path,
     standardized_ifprs["PRIMARY_FUND_ORG_NAME"] = standardized_ifprs["Agency"]
     standardized_ifprs["Source"] = "IFPRS"
 
+    missing_rows = standardized_ifprs[standardized_ifprs[cols].isna().any(axis=1)]
+    logger.debug(missing_rows)
+    
     standardized_ifprs["Year"] = standardized_ifprs["ACTIVITY_END"].apply(
         lambda x: x.year if pd.notnull(x) else None
     )
@@ -274,10 +282,122 @@ def enrich_IFPRS(ifprs_gdb_path,
     )
 
     show_columns(logger, enriched_ifprs, "enriched_ifprs")
+
+    # check enriched_ifprs for missing data
+    pd.set_option('display.max_rows', None)
+    logger.info("-"*70)
+    logger.info(enriched_ifprs[["PROJECTID_USER", "ORG_ADMIN_p", "ADMINISTERING_ORG", "PRIMARY_FUNDING_ORG"]])
+
+    # Define the columns to check
+    cols_to_check = ["PROJECTID_USER", "ORG_ADMIN_p", "ADMINISTERING_ORG", "PRIMARY_FUNDING_ORG"]
+
+    # Filter rows where any of the specified columns are "N/A", "", or NaN
+    mask = enriched_ifprs[cols_to_check].applymap(
+        lambda val: pd.isna(val) or val == "" or val == "N/A" or val == 'City, County, Other' or val == 'BIA, Tribal' or val == 'State'
+    ).any(axis=1)
+
+    # Select those rows and the relevant columns
+    rows_with_issues = enriched_ifprs.loc[mask, cols_to_check]
+
+    # Log only if there are matching rows
+    if not rows_with_issues.empty:
+        logger.info("="*70)
+        logger.info("Rows with 'N/A', empty, or missing values:\n%s", rows_with_issues)
+
+        # Define the mapping
+        fws_ids = [
+            "CATNR-HFR-FY24-MX-W",
+            "CASOR-HFR-FY24-RX-N",
+            "CASOR-HFR-FY24-MX-N",
+            "CALUR-HFR-FY24-MX-165 West Disking",
+            "CALUR-HFR-FY24-MX-W-East Bear Creek 2",
+            "CALUR-HFR-FY24_MX-KestersonMowing 2",
+            "CALUR-HFR-FY24_MX-W-Kesterson Mowing1",
+            "CAHBR-HFR-FY24_MX-W"
+        ]
+
+        nps_ids = [
+            "NPS PWR SAMO FY24 Strategic Fuels - BIL",
+            "CHIS FY24 Rehab and monitor burn pile areas - BIL",
+            "NPS PWR YOSE FY24 Soupbowl - CCI"
+        ]
+
+        bia_ids = [
+            "Oak Mountain Dozer Maintenance Fuel Break",
+            "Water Plant Dozer line 1",
+            "South Reservation Handline 1 Maintenance",
+            "South Reservation Handline 2 Maintenance",
+            "North Reservation Handline 1 Maintenance",
+            "South Reservation Handline 4",
+            "North Reservation Handline 2 Maintenance",
+            "North Reservation Handline 3 Maintenance",
+            "North Reservation Handline 4 Maintenance",
+            "Blue Creek Dozer fuel Break",
+            "BIL Toyon HFR Maintenance - Mowing"
+        ]
+
+        # Define the three target columns
+        target_cols = ["ORG_ADMIN_p", "ADMINISTERING_ORG", "PRIMARY_FUNDING_ORG"]
+
+        # Set values for FWS
+        enriched_ifprs.loc[enriched_ifprs["PROJECTID_USER"].isin(fws_ids), target_cols] = "FWS"
+
+        # Set values for NPS
+        enriched_ifprs.loc[enriched_ifprs["PROJECTID_USER"].isin(nps_ids), target_cols] = "NPS"
+
+        # Set values for BIA
+        enriched_ifprs.loc[enriched_ifprs["PROJECTID_USER"].isin(bia_ids), target_cols] = "BIA"
+
+        # logger.info("-"*70)
+        # logger.info(enriched_ifprs[["PROJECTID_USER", "ORG_ADMIN_p", "ADMINISTERING_ORG", "PRIMARY_FUNDING_ORG"]])
+
+
+    missing_rows = enriched_ifprs[enriched_ifprs[cols].isna().any(axis=1)]
+    # rows_to_show = [9, 26, 69, 224, 321, 322]
+    # print(enriched_ifprs.loc[rows_to_show][cols])
     
     logger.info("   step 17/15 Assign Domains...")
     enriched_ifprs = assign_domains(enriched_ifprs)
+    
+    missing_rows = enriched_ifprs[enriched_ifprs[cols].isna().any(axis=1)]
+    missing_rows = missing_rows[cols]
+    # logger.debug(missing_rows)     
 
+    # Condition 1: IMPLEMENTING_ORG = 'State' and both fields are null
+    cond_state = (
+        (enriched_ifprs["IMPLEMENTING_ORG"] == "State") &
+        (enriched_ifprs["ORG_ADMIN_p"].isna()) &
+        (enriched_ifprs["ADMINISTERING_ORG"].isna())
+    )
+    enriched_ifprs.loc[cond_state, ["ORG_ADMIN_p", "ADMINISTERING_ORG", "PRIMARY_FUNDING_ORG", "AGENCY"]] = "OTHER"
+    
+    # Condition 2: IMPLEMENTING_ORG = 'BIA, Tribal' and both fields are null
+    cond_bia = (
+        (enriched_ifprs["IMPLEMENTING_ORG"] == "BIA, Tribal") &
+        (enriched_ifprs["ORG_ADMIN_p"].isna()) &
+        (enriched_ifprs["ADMINISTERING_ORG"].isna())
+    )
+    enriched_ifprs.loc[cond_bia, ["ORG_ADMIN_p", "ADMINISTERING_ORG"]] = "BIA"
+
+    cond_bia_2 = (
+        (enriched_ifprs["IMPLEMENTING_ORG"] == "BIA, Tribal") &
+        (enriched_ifprs["PRIMARY_FUNDING_ORG"].isna())
+    )
+    enriched_ifprs.loc[cond_bia_2, ["PRIMARY_FUNDING_ORG"]] = "BIA"
+
+    # Condition 3: IMPLEMENTING_ORG = 'USFS'
+    cond_usfs = (
+        (enriched_ifprs["IMPLEMENTING_ORG"] == "USFS")
+    )
+    enriched_ifprs.loc[cond_usfs, ["AGENCY"]] = "USDA"
+
+
+    enriched_ifprs = assign_domains(enriched_ifprs)
+    
+    missing_rows = enriched_ifprs[enriched_ifprs[cols].isna().any(axis=1)]
+    missing_rows = missing_rows[cols]
+    # logger.debug(missing_rows)     
+    
     logger.info("   step 18/15 Save Result...")
     save_gdf_to_gdb(enriched_ifprs,
                     output_gdb_path,
@@ -288,9 +408,9 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    ifprs_input_gdb_path = "IFPRS_20250328.gdb"
-    ifprs_input_layer_name = "ifprs_actual_treatment"
-    a_reference_gdb_path = "a_Reference.gdb"
+    ifprs_input_gdb_path = "/tmp/IFPRS_20251010.gdb"
+    ifprs_input_layer_name = "ifprs_actual_treatments_20251010"
+    a_reference_gdb_path = "/home/klin/misc/test_its/a_Reference.gdb"
     start_year, end_year = 2023, 2025
     output_gdb_path = f"/tmp/IFPRS_{start_year}_{end_year}.gdb"
     output_layer_name = f"IFPRS_enriched_{datetime.today().strftime('%Y%m%d')}"
