@@ -90,20 +90,20 @@ def enrich_IFPRS(ifprs_gdb_path,
      
     logger.info("Performing Standardization...")
 
-    logger.info("   step 1/15 Clip Features to California...")
+    logger.info("   step 1/18 Clip Features to California...")
     ifprs_clip = clip_to_california(ifprs, a_reference_gdb_path)
     logger.info(f"      ifprs shape after clip_to_california: {ifprs_clip.shape}")
     
-    logger.info("   step 2/15 Repairing Geometry...")
+    logger.info("   step 2/18 Repairing Geometry...")
     ifprs_clip = repair_geometries(ifprs_clip)
     logger.info(f"      ifprs shape after repairing geometry: {ifprs_clip.shape}")
     
-    logger.info("   step 3/15 Adding Common Columns...")
+    logger.info("   step 3/18 Adding Common Columns...")
     standardized_ifprs = add_common_columns(ifprs_clip)
     # show_columns(logger, standardized_ifprs, "standardized_ifprs")
     # logger.info(f"      ifprs shape after add_common_columns: {standardized_ifprs.shape}")
     
-    logger.info("   step 4/15 Transferring Values...")
+    logger.info("   step 4/18 Transferring Values...")
     standardized_ifprs["PROJECTID_USER"] = standardized_ifprs["Name"].astype(str)
     # standardized_ifprs["AGENCY"] = standardized_ifprs["Agency"]
     standardized_ifprs["AGENCY"] = "DOI"
@@ -127,7 +127,7 @@ def enrich_IFPRS(ifprs_gdb_path,
     missing_rows = standardized_ifprs[standardized_ifprs[cols].isna().any(axis=1)]
     # logger.debug(missing_rows)
     
-    logger.info("   step 5/15 Calculating Start and End Date...")
+    logger.info("   step 5/18 Calculating Start and End Date...")
     def safe_date_convert(x):
         if pd.isna(x):
             return None
@@ -143,7 +143,7 @@ def enrich_IFPRS(ifprs_gdb_path,
     # logger.debug("-"*70)
     # logger.debug(standardized_ifprs[["ACTIVITY_START", "ACTIVITY_END"]])
 
-    logger.info("   step 6/15 Calculating Status...")
+    logger.info("   step 6/18 Calculating Status...")
     def map_status(status):
         status_map = {
             'started': 'Active',
@@ -155,7 +155,7 @@ def enrich_IFPRS(ifprs_gdb_path,
 
     standardized_ifprs["ACTIVITY_STATUS"] = standardized_ifprs["Status"].apply(map_status)
     
-    logger.info("   step 7/15 Activity Quantity...")
+    logger.info("   step 7/18 Activity Quantity...")
     def calculate_quantity(total_acres, gis_acres):
         if pd.isna(total_acres) or total_acres == 0:
             return gis_acres
@@ -171,7 +171,7 @@ def enrich_IFPRS(ifprs_gdb_path,
     # logger.debug("-"*70)
     # logger.debug(standardized_ifprs[["TotalAcres", "Shape_Area", "ACTIVITY_QUANTITY"]])
 
-    logger.info("   step 8/15 Enter Column Values...")
+    logger.info("   step 8/18 Enter Column Values...")
     standardized_ifprs["ADMIN_ORG_NAME"] = standardized_ifprs["Agency"]
     standardized_ifprs["IMPLEM_ORG_NAME"] = standardized_ifprs["Agency"]
     standardized_ifprs["PRIMARY_FUND_SRC_NAME"] = "FEDERAL"
@@ -185,7 +185,7 @@ def enrich_IFPRS(ifprs_gdb_path,
         lambda x: x.year if pd.notnull(x) else None
     )
 
-    logger.info("   step 9/15 Adding Activity Description to Crosswalk Column...")
+    logger.info("   step 9/18 Adding Activity Description to Crosswalk Column...")
     def crosswalk_activity(type_val, subtype_val, name, notes):
         
         type_val = str(type_val).lower() if pd.notnull(type_val) else ""
@@ -252,27 +252,27 @@ def enrich_IFPRS(ifprs_gdb_path,
     )
     # logger.debug(standardized_ifprs["Crosswalk"])
 
-    logger.info("   step 10/15 Select by Years...")
+    logger.info("   step 10/18 Select by Years...")
     selected_gdf = standardized_ifprs[(standardized_ifprs["Year"] >= start_year) &
                                     (standardized_ifprs["Year"] <= end_year)]
 
-    logger.info("   step 11/15 Create New GeoDataFrame Using the Template...")
+    logger.info("   step 11/18 Create New GeoDataFrame Using the Template...")
     new_ifprs = gpd.GeoDataFrame(columns=get_wfr_tf_template(a_reference_gdb_path).columns, crs="EPSG:3310")
 
-    logger.info("   step 12/15 Append to Template...")
+    logger.info("   step 12/18 Append to Template...")
     new_ifprs = pd.concat([new_ifprs, selected_gdf], ignore_index=True)
 
-    logger.info("   step 13/15 Calculate Treatment Geometry...")
+    logger.info("   step 13/18 Calculate Treatment Geometry...")
     new_ifprs["TRMT_GEOM"] = "POLYGON"
 
-    logger.info("   step 14/15 Remove Unnecessary Columns...")
+    logger.info("   step 14/18 Remove Unnecessary Columns...")
     new_ifprs = keep_fields(new_ifprs)
     # show_columns(logger, new_ifprs, "new_ifprs")
 
-    logger.info("   step 15/15 Enriching Polygons...")
+    logger.info("   step 15/18 Enriching Polygons...")
     enriched_ifprs = enrich_polygons(new_ifprs, a_reference_gdb_path, start_year, end_year)
 
-    logger.info("   step 16/15 Calculate Treatment ID...")
+    logger.info("   step 16/18 Calculate Treatment ID...")
     enriched_ifprs["TRMTID_USER"] = (
         enriched_ifprs["PROJECTID_USER"] + "-" +
         enriched_ifprs["COUNTY"].str[:3] + "-" +
@@ -356,7 +356,7 @@ def enrich_IFPRS(ifprs_gdb_path,
     # rows_to_show = [9, 26, 69, 224, 321, 322]
     # print(enriched_ifprs.loc[rows_to_show][cols])
     
-    logger.info("   step 17/15 Assign Domains...")
+    logger.info("   step 17/18 Assign Domains...")
     enriched_ifprs = assign_domains(enriched_ifprs)
     
     missing_rows = enriched_ifprs[enriched_ifprs[cols].isna().any(axis=1)]
@@ -398,7 +398,7 @@ def enrich_IFPRS(ifprs_gdb_path,
     missing_rows = missing_rows[cols]
     # logger.debug(missing_rows)     
     
-    logger.info("   step 18/15 Save Result...")
+    logger.info("   step 18/18 Save Result...")
     save_gdf_to_gdb(enriched_ifprs,
                     output_gdb_path,
                     output_layer_name,
