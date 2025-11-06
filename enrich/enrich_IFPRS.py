@@ -100,8 +100,8 @@ def enrich_IFPRS(ifprs_gdb_path,
     
     logger.info("   step 3/15 Adding Common Columns...")
     standardized_ifprs = add_common_columns(ifprs_clip)
-    show_columns(logger, standardized_ifprs, "standardized_ifprs")
-    logger.info(f"      ifprs shape after add_common_columns: {standardized_ifprs.shape}")
+    # show_columns(logger, standardized_ifprs, "standardized_ifprs")
+    # logger.info(f"      ifprs shape after add_common_columns: {standardized_ifprs.shape}")
     
     logger.info("   step 4/15 Transferring Values...")
     standardized_ifprs["PROJECTID_USER"] = standardized_ifprs["Name"].astype(str)
@@ -125,7 +125,7 @@ def enrich_IFPRS(ifprs_gdb_path,
 
     cols = ["AGENCY", "ORG_ADMIN_p", "ADMINISTERING_ORG", "IMPLEMENTING_ORG"]
     missing_rows = standardized_ifprs[standardized_ifprs[cols].isna().any(axis=1)]
-    logger.debug(missing_rows)
+    # logger.debug(missing_rows)
     
     logger.info("   step 5/15 Calculating Start and End Date...")
     def safe_date_convert(x):
@@ -179,7 +179,7 @@ def enrich_IFPRS(ifprs_gdb_path,
     standardized_ifprs["Source"] = "IFPRS"
 
     missing_rows = standardized_ifprs[standardized_ifprs[cols].isna().any(axis=1)]
-    logger.debug(missing_rows)
+    # logger.debug(missing_rows)
     
     standardized_ifprs["Year"] = standardized_ifprs["ACTIVITY_END"].apply(
         lambda x: x.year if pd.notnull(x) else None
@@ -250,7 +250,7 @@ def enrich_IFPRS(ifprs_gdb_path,
     standardized_ifprs["Crosswalk"] = standardized_ifprs.apply(
         lambda row: crosswalk_activity(row["Type"], row["SubType"], row["Name"], row["Notes"]), axis=1
     )
-    logger.debug(standardized_ifprs["Crosswalk"])
+    # logger.debug(standardized_ifprs["Crosswalk"])
 
     logger.info("   step 10/15 Select by Years...")
     selected_gdf = standardized_ifprs[(standardized_ifprs["Year"] >= start_year) &
@@ -267,7 +267,7 @@ def enrich_IFPRS(ifprs_gdb_path,
 
     logger.info("   step 14/15 Remove Unnecessary Columns...")
     new_ifprs = keep_fields(new_ifprs)
-    show_columns(logger, new_ifprs, "new_ifprs")
+    # show_columns(logger, new_ifprs, "new_ifprs")
 
     logger.info("   step 15/15 Enriching Polygons...")
     enriched_ifprs = enrich_polygons(new_ifprs, a_reference_gdb_path, start_year, end_year)
@@ -281,12 +281,12 @@ def enrich_IFPRS(ifprs_gdb_path,
         enriched_ifprs["PRIMARY_OBJECTIVE"].str[:8]
     )
 
-    show_columns(logger, enriched_ifprs, "enriched_ifprs")
+    # show_columns(logger, enriched_ifprs, "enriched_ifprs")
 
     # check enriched_ifprs for missing data
     pd.set_option('display.max_rows', None)
-    logger.info("-"*70)
-    logger.info(enriched_ifprs[["PROJECTID_USER", "ORG_ADMIN_p", "ADMINISTERING_ORG", "PRIMARY_FUNDING_ORG"]])
+    # logger.info("-"*70)
+    # logger.info(enriched_ifprs[["PROJECTID_USER", "ORG_ADMIN_p", "ADMINISTERING_ORG", "PRIMARY_FUNDING_ORG"]])
 
     # Define the columns to check
     cols_to_check = ["PROJECTID_USER", "ORG_ADMIN_p", "ADMINISTERING_ORG", "PRIMARY_FUNDING_ORG"]
@@ -301,8 +301,8 @@ def enrich_IFPRS(ifprs_gdb_path,
 
     # Log only if there are matching rows
     if not rows_with_issues.empty:
-        logger.info("="*70)
-        logger.info("Rows with 'N/A', empty, or missing values:\n%s", rows_with_issues)
+        # logger.info("="*70)
+        # logger.info("Rows with 'N/A', empty, or missing values:\n%s", rows_with_issues)
 
         # Define the mapping
         fws_ids = [
