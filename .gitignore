@@ -2,6 +2,7 @@
 
 cache/
 notebooks/cache/
+notebooks/temp_mns.gdb/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
