@@ -5,6 +5,8 @@ import pandas as pd
 import geopandas as gpd
 import dask_geopandas
 import yaml
+import argparse
+
 
 from multiprocessing import Pool
 
@@ -117,6 +119,28 @@ if __name__ == '__main__':
     end_year = config_inputs['global']['end_year']
 
     enriched_layers = get_all_enriched_paths(enriched_path)
+
+    # read command line argument
+    parser = argparse.ArgumentParser(description='Append enriched files. Optional arguement: "--geom_type"; valid input: ["point", "line", "polygon", "all"]; default to "all" ')
+    parser.add_argument("--geom_type", type=str, default="all")
+    args = parser.parse_args()
+    # if only a specific geom_type needs to be processed
+    if args.geom_type == "point":
+        enriched_layers = {'point': enriched_layers['point'], 
+                    'line': [],
+                    'polygon': []}
+    elif args.geom_type == "line":
+        enriched_layers = {'point': [], 
+                    'line': enriched_layers['line'],
+                    'polygon': []}
+    elif args.geom_type == "polygon":
+        enriched_layers = {'point': [], 
+                    'line': [],
+                    'polygon': enriched_layers['polygon']}
+    elif args.geom_type == "all":
+        pass
+    else:
+        raise ValueError('Input must be from ["point", "line", "polygon", "all"].')
     
     # force reapply domain standardization for sanity
     for lyr_type in enriched_layers.keys():
@@ -135,14 +159,15 @@ if __name__ == '__main__':
     
     # grab timber non spatial path again
     timber_nonspatial_path = None
+    timber_nonspatial = None
     for p in enriched_layers['point']:
         if 'Timber_Nonspatial' in p['gdb_path']:
             timber_nonspatial_path = p
             break
-        
-    timber_nonspatial = gpd.read_file(timber_nonspatial_path['gdb_path'], 
-                                driver='OpenFileGDB', 
-                                layer=timber_nonspatial_path['layer_name'])
+    if timber_nonspatial_path:
+        timber_nonspatial = gpd.read_file(timber_nonspatial_path['gdb_path'], 
+                                    driver='OpenFileGDB', 
+                                    layer=timber_nonspatial_path['layer_name'])
     
 
     # use dask geopandas for multithread clipping

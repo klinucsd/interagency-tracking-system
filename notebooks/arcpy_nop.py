@@ -1,7 +1,7 @@
 import arcpy
 import os
 
-years = ['2021', '2022', '2023', '2024']
+years = ['2021', '2022', '2023', '2024', '2025']
 temp_path = 'temp_mns.gdb'
 
 for y in years:

@@ -277,21 +277,21 @@ if __name__ == "__main__":
     with open("..\config.yaml", 'r') as stream:
         config_inputs = yaml.safe_load(stream)
 
-    usfs_input_base_path = config_inputs['usfs']['input']['base_path'] 
+    usfs_input_base_path = config_inputs['sources']['usfs']['input']['base_path'] 
     a_reference_gdb_path = config_inputs['global']['reference_gdb']
     start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
     output_format_dict = {'start_year': start_year,
                           'end_year': end_year,
                           'date': datetime.today().strftime('%Y%m%d')}
-    output_gdb_path = config_inputs['usfs']['output']['gdb_path'].format(**output_format_dict)
+    output_gdb_path = config_inputs['sources']['usfs']['output']['gdb_path'].format(**output_format_dict)
 
-    region_ids = config_inputs['usfs']['input']['regions']
+    region_ids = config_inputs['sources']['usfs']['input']['regions']
     for region_id in region_ids: 
-        usfs_input_file_name = config_inputs['usfs']['input']['gdb_template'].format(**{'region', region_id})
+        usfs_input_file_name = config_inputs['sources']['usfs']['input']['gdb_template'].format(**{'region': region_id})
         usfs_input_gdb_path = os.path.join(usfs_input_base_path, usfs_input_file_name)
-        usfs_input_layer_name = config_inputs['usfs']['input']['layer_name']
+        usfs_input_layer_name = config_inputs['sources']['usfs']['input']['layer_name']
         output_format_dict['region'] = region_id
-        output_layer_name = config_inputs['usfs']['output']['layer_name'].format(**output_format_dict)
+        output_layer_name = config_inputs['sources']['usfs']['output']['layer_name'].format(**output_format_dict)
         enrich_USFS(usfs_input_gdb_path,
                     usfs_input_layer_name,
                     a_reference_gdb_path,

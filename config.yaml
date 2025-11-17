@@ -7,7 +7,7 @@ global:
   reference_gdb: "a_Reference.gdb"
   veg_own_gdb: "a_Reference.gdb"
   veg_own_layer_name: "Own_Veg_Region_WUI"
-  california_boundry_layer_name = "California"
+  california_boundry_layer_name: "California"
   date: "20250603"                     # may used as a part of the output layer name; use today if not setup
   date_format: "%Y%m%d"
   start_year: 1950

@@ -201,15 +201,15 @@ if __name__ == "__main__":
     with open("..\config.yaml", 'r') as stream:
         config_inputs = yaml.safe_load(stream)
 
-    ti_input_gdb_path = config_inputs['timber_industry_spatial']['input']['gdb_path']
-    ti_input_layer_name = config_inputs['timber_industry_spatial']['input']['layer_name']
+    ti_input_gdb_path = config_inputs['sources']['timber_industry_spatial']['input']['gdb_path']
+    ti_input_layer_name = config_inputs['sources']['timber_industry_spatial']['input']['layer_name']
     a_reference_gdb_path = config_inputs['global']['reference_gdb']
     start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
     output_format_dict = {'start_year': start_year,
                           'end_year': end_year,
                           'date': datetime.today().strftime('%Y%m%d')}
-    output_gdb_path = config_inputs['timber_industry_spatial']['output']['gdb_path'].format(**output_format_dict)
-    output_layer_name = config_inputs['timber_industry_spatial']['output']['layer_name'].format(**output_format_dict)
+    output_gdb_path = config_inputs['sources']['timber_industry_spatial']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['sources']['timber_industry_spatial']['output']['layer_name'].format(**output_format_dict)
     
     enrich_Timber_Industry(ti_input_gdb_path,
                            ti_input_layer_name,

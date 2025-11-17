@@ -14,11 +14,13 @@ import time
 import psutil
 import os
 import yaml
-v
+
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 from datetime import datetime
+import sys
+sys.path.append('../')
 
 from its_logging.logger_config import logger
 from utils.its_utils import clip_to_california, get_wfr_tf_template
@@ -514,19 +516,19 @@ if __name__ == "__main__":
     with open("..\config.yaml", 'r') as stream:
         config_inputs = yaml.safe_load(stream)
 
-    cnra_input_gdb_path = config_inputs['cnra']['input']['gdb_path']
-    cnra_polygon_layer_name = config_inputs['cnra']['input']['polygon_layer_name']
-    cnra_line_layer_name = config_inputs['cnra']['input']['line_layer_name']
-    cnra_point_layer_name = config_inputs['cnra']['input']['point_layer_name']
-    cnra_project_polygon_layer_name = config_inputs['cnra']['input']['project_layer_name']
-    cnra_activity_layer_name =config_inputs['cnra']['input']['activity_layer_name']
+    cnra_input_gdb_path = config_inputs['sources']['cnra']['input']['gdb_path']
+    cnra_polygon_layer_name = config_inputs['sources']['cnra']['input']['polygon_layer_name']
+    cnra_line_layer_name = config_inputs['sources']['cnra']['input']['line_layer_name']
+    cnra_point_layer_name = config_inputs['sources']['cnra']['input']['point_layer_name']
+    cnra_project_polygon_layer_name = config_inputs['sources']['cnra']['input']['project_layer_name']
+    cnra_activity_layer_name =config_inputs['sources']['cnra']['input']['activity_layer_name']
     a_reference_gdb_path = config_inputs['global']['reference_gdb']
     start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
     output_format_dict = {'start_year': start_year,
                           'end_year': end_year,
                           'date': datetime.today().strftime('%Y%m%d')}
-    output_gdb_path = config_inputs['cnra']['output']['gdb_path'].format(**output_format_dict)
-    output_layer_name = config_inputs['cnra']['output']['layer_name'].format(**output_format_dict)
+    output_gdb_path = config_inputs['sources']['cnra']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['sources']['cnra']['output']['layer_name'].format(**output_format_dict)
 
     enrich_CNRA(cnra_input_gdb_path,
                 cnra_polygon_layer_name,

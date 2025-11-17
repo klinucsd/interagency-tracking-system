@@ -345,8 +345,8 @@ if __name__ == "__main__":
     with open("..\config.yaml", 'r') as stream:
         config_inputs = yaml.safe_load(stream)
 
-    nps_gdb_path = config_inputs['nps']['input']['gdb_path'] 
-    nps_layer_name = config_inputs['nps']['input']['layer_name'] 
+    nps_gdb_path = config_inputs['sources']['nps']['input']['gdb_path'] 
+    nps_layer_name = config_inputs['sources']['nps']['input']['layer_name'] 
     if nps_gdb_path[-3:] == 'shp':
         nps_layer_name = None # if input file type is shapefile, then set layer name to None
 
@@ -357,8 +357,8 @@ if __name__ == "__main__":
     output_format_dict = {'start_year': start_year,
                           'end_year': end_year,
                           'date': datetime.today().strftime('%Y%m%d')}
-    output_gdb_path = config_inputs['nps']['output']['gdb_path'].format(**output_format_dict)
-    output_layer_name = config_inputs['nps']['output']['layer_name'].format(**output_format_dict)
+    output_gdb_path = config_inputs['sources']['nps']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['sources']['nps']['output']['layer_name'].format(**output_format_dict)
 
 
     if nps_arcgis_feature_url:

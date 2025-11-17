@@ -269,16 +269,25 @@ def enrich_Timber_Nonspatial(tn_input_excel_path,
         'Thinning (Mechanical)': -123.373398,
         
     }
-    
-    tn_df['LATITUDE'] = tn_df['ACTIVITY_DESCRIPTION'].map(lat_mapping)
-    tn_df['LONGITUDE'] = tn_df['ACTIVITY_DESCRIPTION'].map(lon_mapping)
 
-    #### NOT FINAL
-    # assign random lat lon within bbox if lat lon is None
+    # Revised grid geometery
     lat_min, lat_max = min(lat_mapping.values()), max(lat_mapping.values())
     lon_min, lon_max = min(lon_mapping.values()), max(lon_mapping.values())
-    tn_df.loc[tn_df.LATITUDE.isna(), 'LATITUDE'] = np.random.rand(sum(tn_df.LATITUDE.isna()))*(lat_max - lat_min) + lat_min
-    tn_df.loc[tn_df.LONGITUDE.isna(), 'LONGITUDE'] = np.random.rand(sum(tn_df.LONGITUDE.isna()))*(lon_min - lon_max) + lon_min
+
+    delta = int(np.ceil(np.sqrt(len(tn_df))))
+    lat_delta = (lat_max - lat_min)/delta
+    lon_delta = (lon_max - lon_min)/delta
+
+    coords = np.mgrid[lon_min:lon_max:lon_delta, lat_min:lat_max:lat_delta].T
+    coords = coords.reshape(coords.shape[0]*coords.shape[1], -1)
+
+    tn_df = tn_df.sort_values(by='ACTIVITY_DESCRIPTION')
+
+    tn_df.geometry = [Point(coords[i]) for i in range(len(tn_df))]
+
+    #tn_df['LATITUDE'] = tn_df['ACTIVITY_DESCRIPTION'].map(lat_mapping)
+    #tn_df['LONGITUDE'] = tn_df['ACTIVITY_DESCRIPTION'].map(lon_mapping)
+
 
 
     # Convert to GeoDataFrame
@@ -349,14 +358,14 @@ if __name__ == "__main__":
     with open("..\config.yaml", 'r') as stream:
         config_inputs = yaml.safe_load(stream)
 
-    tn_input_excel_path = config_inputs['timber_industry_nonspatial']['input']['excel_path']
+    tn_input_excel_path = config_inputs['sources']['timber_industry_nonspatial']['input']['excel_path']
     a_reference_gdb_path = config_inputs['global']['reference_gdb']
     start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
     output_format_dict = {'start_year': start_year,
                           'end_year': end_year,
                           'date': datetime.today().strftime('%Y%m%d')}
-    output_gdb_path = config_inputs['timber_industry_nonspatial']['output']['gdb_path'].format(**output_format_dict)
-    output_layer_name = config_inputs['timber_industry_nonspatial']['output']['layer_name'].format(**output_format_dict)
+    output_gdb_path = config_inputs['sources']['timber_industry_nonspatial']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['sources']['timber_industry_nonspatial']['output']['layer_name'].format(**output_format_dict)
     
     enrich_Timber_Nonspatial(tn_input_excel_path,
                              a_reference_gdb_path,

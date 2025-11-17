@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 import geopandas as gpd
 import numpy as np
+import yaml
 from pandas.api.types import CategoricalDtype
 from typing import Dict, Tuple
 
@@ -29,7 +30,9 @@ def create_domain_categories(excel_path: str) -> Dict[str, Tuple[CategoricalDtyp
         where domain_dict maps codes to descriptions
     """
     # Read all sheets from Excel file
-    excel = pd.ExcelFile("Domain_Tables_20231004.xlsx")
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+    excel = pd.ExcelFile(config_inputs['global']['domain_table'])
     
     # Dictionary to store categorical types and domain dictionaries
     domain_categories = {}

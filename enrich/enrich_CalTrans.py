@@ -294,19 +294,19 @@ if __name__ == "__main__":
     with open("..\config.yaml", 'r') as stream:
         config_inputs = yaml.safe_load(stream)
     
-    caltrans_input_gdb_path = config_inputs['caltrans']['input']['gdb_path']
+    caltrans_input_gdb_path = config_inputs['sources']['caltrans']['input']['gdb_path']
     # tree layers are not used for this project for now
     tree_activity_layer_name = None
     tree_treatment_layer_name = None
-    road_activity_layer_name = config_inputs['caltrans']['input']['road_activity_layer_name_path']
-    road_treatment_layer_name = config_inputs['caltrans']['input']['road_treatment_layer_name']
+    road_activity_layer_name = config_inputs['sources']['caltrans']['input']['road_activity_layer_name']
+    road_treatment_layer_name = config_inputs['sources']['caltrans']['input']['road_treatment_layer_name']
     a_reference_gdb_path = config_inputs['global']['reference_gdb']
     start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
     output_format_dict = {'start_year': start_year,
                           'end_year': end_year,
                           'date': datetime.today().strftime('%Y%m%d')}
-    output_gdb_path = config_inputs['caltrans']['output']['gdb_path'].format(**output_format_dict)
-    output_layer_name = config_inputs['caltrans']['output']['layer_name'].format(**output_format_dict)
+    output_gdb_path = config_inputs['sources']['caltrans']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['sources']['caltrans']['output']['layer_name'].format(**output_format_dict)
 
     enrich_Caltrans(caltrans_input_gdb_path,
                     tree_activity_layer_name,

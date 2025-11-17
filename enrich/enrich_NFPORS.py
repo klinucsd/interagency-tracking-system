@@ -424,17 +424,17 @@ if __name__ == "__main__":
     with open("..\config.yaml", 'r') as stream:
         config_inputs = yaml.safe_load(stream)
 
-    nfpors_input_gdb_path = config_inputs['nfpors']['nfpors']['gdb_path']
-    nfpors_polygon_layer_name = config_inputs['nfpors']['nfpors']['polygon_layer']
-    nfpors_bia_layer_name = config_inputs['nfpors']['nfpors']['bia_layer']
+    nfpors_input_gdb_path = config_inputs['sources']['nfpors']['nfpors']['gdb_path']
+    nfpors_polygon_layer_name = config_inputs['sources']['nfpors']['nfpors']['polygon_layer']
+    nfpors_bia_layer_name = config_inputs['sources']['nfpors']['nfpors']['bia_layer']
     nfpors_fws_layer_name = None # V2.0 fws and bia are provided in the same layer
     a_reference_gdb_path = config_inputs['global']['reference_gdb']
     start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
     output_format_dict = {'start_year': start_year,
                           'end_year': end_year,
                           'date': datetime.today().strftime('%Y%m%d')}
-    output_gdb_path = config_inputs['nfpors']['output']['gdb_path'].format(**output_format_dict)
-    output_layer_name = config_inputs['nfpors']['output']['layer_name'].format(**output_format_dict)
+    output_gdb_path = config_inputs['sources']['nfpors']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['sources']['nfpors']['output']['layer_name'].format(**output_format_dict)
 
     enrich_NFPORS(nfpors_input_gdb_path,
                   nfpors_polygon_layer_name,
