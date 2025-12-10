@@ -24,7 +24,28 @@ from utils.counts_to_mas import counts_to_mas
 
 logger = logging.getLogger('process.append_polygon')
 
-
+def check_core_criteria(row):
+    core_eval = 0
+    if row['ADMINISTERING_ORG'] is not None:
+        core_eval +=1
+    # status complete
+    if row['ACTIVITY_STATUS'] == 'COMPLETE':
+        core_eval +=1
+        # if complete must have a not none end date
+        if row['ACTIVITY_END'] is not None:
+            core_eval +=1
+    # if status is not complete but filled 
+    # activity_end does not need to be valid
+    elif row['ACTIVITY_STATUS'] is not None:
+        core_eval +=2
+        
+    if row['ACTIVITY_QUANTITY'] > 0:
+        core_eval +=1
+    
+    if row['ACTIVITY_UOM'] is not None:
+        core_eval +=1
+        
+    return core_eval
 
 def append_enriched_features(layers):
     gdfs_to_append = []
@@ -182,4 +203,6 @@ if __name__ == '__main__':
         # industry nonspatial is by design out of california bounds and got clipped, manually concat it back
         if lyr_name == 'appended_point':
             append_clipped = pd.concat([append_clipped, timber_nonspatial], ignore_index=True)
+
+        append_clipped['CORE_CRITERIA'] = append_clipped.apply(check_core_criteria, axis=1)
         save_gdf_to_gdb(append_clipped, output_append_path, lyr_name)

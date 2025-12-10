@@ -207,7 +207,22 @@ def enrich_Timber_Nonspatial(tn_input_excel_path,
     }
     tn_df['ACTIVITY_DESCRIPTION'] = tn_df['ACTIVITY_DESCRIPTION'].replace(activity_mapping)
     tn_df['Crosswalk'] = tn_df['ACTIVITY_DESCRIPTION']
-    
+
+
+
+    def get_factors(val):
+        # find closest factor for sub-rectangle division
+        val = int(np.ceil(val))
+        # make even if odd
+        if val & 0x1:
+            val += 1
+        width = np.ceil(np.sqrt(val))
+        
+        while (val%width != 0):
+            width -= 1
+        length = val/width
+        return width, length
+        
     # Add coordinates based on activity description
     lat_mapping = {
         'Aspen/Meadow/Wet Area Restoration': 37.482646,
@@ -342,7 +357,35 @@ def enrich_Timber_Nonspatial(tn_input_excel_path,
     logger.info(f"   step 9/10 Assign Domains...")
     tn_enriched = assign_domains(tn_enriched)
 
+
+    # re-assign cluster based geometry after enrich
+    # requires ACTIVITY_CAT from enrichment
+    cat_len = len(tn_enriched.ACTIVITY_CAT.unique())
+    width, length = get_factors(cat_len)
+
+    bbox_dict = {}
+    lat_delta = (lat_max - lat_min)/width
+    lon_delta = (lon_max - lon_min)/length
+    OFFSET = 0.015
+    lat_cur = lat_min
+    lon_cur = lon_min
+    for c in tn_enriched.ACTIVITY_CAT.unique():
+        if lat_cur+lat_delta >= lat_max:
+            lat_cur = lat_min
+            lon_cur = lon_cur + lon_delta
+        bbox_dict[c] = {"lat_min": lat_cur,
+                    "lat_max": lat_cur + lat_delta,
+                    "lon_min": lon_cur,
+                    "lon_max": lon_cur + lon_delta}
+        lat_cur += lat_delta
+
+    def get_pts(row):
+        bbox = bbox_dict[row['ACTIVITY_CAT']]
+        return Point(np.random.uniform(bbox['lon_min']+OFFSET, bbox['lon_max']-OFFSET),
+            np.random.uniform(bbox['lat_min']+OFFSET, bbox['lat_max']-OFFSET))
     
+    tn_enriched.geometry = tn_enriched.apply(get_pts, axis=1)
+
     logger.info(f"   step 10/10 Save Result...")
     save_gdf_to_gdb(tn_enriched,
                     output_gdb_path,

@@ -11,7 +11,7 @@ def get_activity_report(enriched_points, enriched_lines, enriched_polygons):
     append_all = append_all[(append_all['COUNTS_TO_MAS'] == 'YES')]
     
     # 
-    append_all.geometry = gpd.points_from_xy(append_all['LONGITUDE'],append_all['LATITUDE'])
+    append_all.geometry = append_all.representative_point()
     
     
     append_all = append_all[["AGENCY",
@@ -27,6 +27,8 @@ def get_activity_report(enriched_points, enriched_lines, enriched_polygons):
         "ACTIVITY_UOM",
         "ACTIVITY_END",
         "Year_txt",
+        "CORE_CRITERIA",
+        "VALID_GEOM",
         "geometry"
     ]]
     
