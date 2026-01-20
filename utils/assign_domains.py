@@ -1,5 +1,5 @@
-
 import logging
+import os
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -29,7 +29,10 @@ def create_domain_categories(excel_path: str) -> Dict[str, Tuple[CategoricalDtyp
         where domain_dict maps codes to descriptions
     """
     # Read all sheets from Excel file
-    excel = pd.ExcelFile("Domain_Tables_20231004.xlsx")
+    # Get the project root directory (utils/ -> parent)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    domain_file_path = os.path.join(project_root, "Domain_Tables_20231004.xlsx")
+    excel = pd.ExcelFile(domain_file_path)
     
     # Dictionary to store categorical types and domain dictionaries
     domain_categories = {}
@@ -253,5 +256,4 @@ if __name__ == "__main__":
     # gdf = apply_domain(gdf, "PRIMARY_OBJECTIVE", "D_OBJECTIVE", domains)
     # gdf = apply_domain(gdf, "SECONDARY_OBJECTIVE", "D_OBJECTIVE", domains)
     # gdf = apply_domain(gdf, "PROJECT_STATUS", "D_STATUS", domains)
-
 
