@@ -146,7 +146,7 @@ def enrich_IFPRS(ifprs_gdb_path,
 
     standardized_ifprs["TotalAcres"] = standardized_ifprs["MeasureAmount"]
     standardized_ifprs["ACTIVITY_QUANTITY"] = standardized_ifprs.apply(
-        lambda row: calculate_quantity(row["TotalAcres"], row["Shape_Area"] / 4046.86), axis=1
+        lambda row: calculate_quantity(row["TotalAcres"], row["geometry"].area / 4046.86), axis=1
     )
     standardized_ifprs["ACTIVITY_QUANTITY"] = standardized_ifprs["ACTIVITY_QUANTITY"].astype(float)
 
