@@ -9,7 +9,7 @@ from its_logging.logger_config import logger
 from utils.gdf_utils import show_columns
 from utils.keep_fields import keep_fields
 from utils.category import categorize_activity
-from utils.standardize_domains import standardize_domains
+from utils.standardize_domains import standardize_domains, update_objective, update_activity_description
 from utils.counts_to_mas import counts_to_mas
 
 
@@ -61,6 +61,11 @@ def crosswalk(input_df, a_reference_gdb_path, start_year, end_year):
     columns_to_keep = [col for col in input_df.columns]
     df_no_join = merged_df[columns_to_keep]
     show_columns(logger, df_no_join, "df_no_join")
+
+
+    # UPDATE: standardize primary objective and activity description before processing category
+    df_no_join['PRIMARY_OBJECTIVE'] = df_no_join['PRIMARY_OBJECTIVE'].apply(update_objective)    
+    df_no_join['ACTIVITY_DESCRIPTION'] = df_no_join['ACTIVITY_DESCRIPTION'].apply(update_activity_description)
     
     logger.info("            cross step 6/8 calculate category")
     categorized_df = categorize_activity(df_no_join)

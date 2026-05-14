@@ -12,6 +12,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -43,7 +44,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 BLM_COLUMNS = [
     'UNIQUE_ID', 'SYS_CD', 'SYS_TRTMNT_ID', 'TRTMNT_NM', 'TRTMNT_TYPE_CD',
     'TRTMNT_SUBTYPE', 'TRTMNT_START_DT', 'TRTMNT_END_DT', 'TRTMNT_COMMENTS',
-    'BLM_ACRES', 'GIS_ACRES', 'ADMIN_ST', 'OBJECTID', 'geometry',
+    'BLM_ACRES', 'GIS_ACRES', 'ADMIN_ST', 'geometry',
     # 'Tmp_Text_ca', 'Tmp_Long_ca', 'Tmp_Float_ca', 'Tmp_Date_ca', 'Comments_ca',
     # 'CREATE_DATE', 'CREATE_BY', 'MODIFY_DATE', 'MODIFY_BY', 'SHAPE_Length', 'SHAPE_Area',
 ]
@@ -60,7 +61,19 @@ def enrich_BLM(blm_gdb_path,
     logger.info("Load the BLM data into a GeoDataFrame")
     start = time.time()
     # blm = gpd.read_file(blm_gdb_path, driver="OpenFileGDB", layer=blm_layer_name)
-    blm = gpd.read_file(blm_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {blm_layer_name}")
+    try:
+        # TEMP: try block for new shapefile input
+        blm = gpd.read_file(blm_gdb_path)
+        remap_dict = {'SYS_TRTMNT':'SYS_TRTMNT_ID',
+        'TRTMNT_TYP':'TRTMNT_TYPE_CD',
+        'TRTMNT_SUB':'TRTMNT_SUBTYPE',
+        'TRTMNT_STA':'TRTMNT_START_DT',
+        'TRTMNT_END':'TRTMNT_END_DT',
+        'TRTMNT_COM':'TRTMNT_COMMENTS'
+        }
+        blm = blm.rename(remap_dict, axis=1)
+    except:
+        blm = gpd.read_file(blm_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {blm_layer_name}")
     logger.info(f"   time for loading {blm_layer_name}: {time.time()-start}")
     
     # validate the input data
@@ -266,25 +279,40 @@ def enrich_BLM(blm_gdb_path,
     logger.info("   step 14/15 Assign Domains...")
     enriched_blm = assign_domains(enriched_blm)
 
+    # fiscal cutoff for new IFPIRS 
+    # BLM, NPS, NFPORS after 2024/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
+    enriched_blm.loc[enriched_blm['ACTIVITY_END'] >= f'2024-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+
     logger.info("   step 15/15 Save Result...")
     save_gdf_to_gdb(enriched_blm,
                     output_gdb_path,
                     output_layer_name,
                     group_name="c_Enriched")
     
+    # force release memory
+    # delete gdf
+    # garbage collection 
+    
+    
     
 if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    blm_input_gdb_path = "BLM_2010_2023_fromReisThomasViaUpload.gdb"
-    blm_input_layer_name = "BLM_2010_2023_fromReisThomasViaUpload"
-    blm_input_gdb_path = "b_Originals/BLM.gdb"
-    blm_input_layer_name = "BLM_20230813"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/BLM_{start_year}_{end_year}.gdb"
-    output_layer_name = f"BLM_enriched_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    blm_input_gdb_path = config_inputs['sources']['blm']['input']['gdb_path']
+    blm_input_layer_name = config_inputs['sources']['blm']['input']['layer_name']
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['sources']['blm']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['sources']['blm']['output']['layer_name'].format(**output_format_dict)
+
 
     enrich_BLM(blm_input_gdb_path,
                blm_input_layer_name,

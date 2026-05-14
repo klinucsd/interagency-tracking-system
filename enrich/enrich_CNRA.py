@@ -13,11 +13,14 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 from datetime import datetime
+import sys
+sys.path.append('../')
 
 from its_logging.logger_config import logger
 from utils.its_utils import clip_to_california, get_wfr_tf_template
@@ -44,7 +47,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 CNRA_POLYGON_COLUMNS = [
-    'Shape_Area', 'Shape_Length', 'county', 'created_date',
+    'county', 'created_date',
     'created_user', 'geometry', 'globalid', 'globalid_text', 'in_wui',
     'last_edited_date', 'last_edited_user', 'org_admin_t', 'primary_objective',
     'primary_ownership_group', 'projectid', 'projectid_user', 'projectname_',
@@ -53,7 +56,7 @@ CNRA_POLYGON_COLUMNS = [
     'treatment_status', 'trmtid_user', 'validationstatus']
 
 CNRA_LINE_COLUMNS = [
-    'Shape_Length', 'county', 'created_date', 'created_user',
+    'county', 'created_date', 'created_user',
     'geometry', 'globalid', 'globalid_text', 'in_wui', 'last_edited_date',
     'last_edited_user', 'org_admin_t', 'primary_objective', 'primary_ownership_group',
     'projectid', 'projectid_user', 'projectname_', 'region', 'retreatment_date_est',
@@ -69,7 +72,7 @@ CNRA_POINT_COLUMNS = [
     'treatment_start', 'treatment_status', 'trmtid_user', 'validationstatus']
 
 CNRA_PROJECT_COLUMNS = [
-    'Shape_Area', 'Shape_Length', 'administering_org', 'agency',
+    'administering_org', 'agency',
     'created_date', 'created_user', 'geometry', 'globalid', 'globalid_text',
     'implementing_org', 'last_edited_date', 'last_edited_user', 'latitude',
     'longitude', 'org_admin_p', 'primary_funding_org', 'primary_funding_source',
@@ -114,8 +117,7 @@ def prepare_activity_table(cnra_activities):
     
     # Define ifelse functions for various field calculations
     def ifelse_treatment_id(row):
-        # if row['TREATMENTID_'] is not None:
-        #    return row['TREATMENTID_']
+
         if row['TREATMENTID_LN'] is not None:
             return row['TREATMENTID_LN']
         if row['TREATMENTID_PT'] is not None:
@@ -127,10 +129,11 @@ def prepare_activity_table(cnra_activities):
     
     # Apply the calculations
     activity_table['TREATMENTID_'] = activity_table.apply(ifelse_treatment_id, axis=1)
-    activity_table['TRMTID_USER'] = activity_table.apply(
-        lambda x: ifelse_trmtid_user(x['TRMTID_USER'], x['ACTIVID_USER']), axis=1)
-    activity_table['TRMTID_USER'] = activity_table.apply(
-        lambda x: ifelse_trmtid_user(x['TRMTID_USER'], x['ACTIVITY_NAME']), axis=1)
+
+    # UPDATE
+    # drop na in unique key
+    activity_table = activity_table.dropna(subset=['TREATMENTID_'])
+
     
     logger.info("      step 2/17 remove milliseconds from dates")
     # Convert and clean date fields
@@ -197,10 +200,7 @@ def prepare_activity_table(cnra_activities):
     activity_table = pd.concat([standardized_df, activity_table[common_columns]], ignore_index=True)
     show_columns(logger, activity_table, "activity_table")
     
-    logger.info("      step 5/17 calculate unique Treatment ID with postfix '-CNRA'")
-    activity_table.loc[activity_table['TRMTID_USER'].notna(), 'TRMTID_USER'] = \
-        activity_table.loc[activity_table['TRMTID_USER'].notna(), 'TRMTID_USER'].str[:45] + '-CNRA'
-        
+
     return activity_table
 
 
@@ -218,15 +218,11 @@ def prepare_project_table(cnra_projects):
         lambda x: 'CNRA' if x == 'CALFIRE' else x)
     
     # Update project ID
-    def update_project_id(row):
-        if pd.isna(row['PROJECTID_USER']) or row['PROJECTID_USER'].strip() == '':
-            return row['PROJECT_NAME']
-        return row['PROJECTID_USER']
-
     logger.info("      step 7/17 calculate unique Project ID if null")
-    project_table['PROJECTID_USER'] = project_table.apply(update_project_id, axis=1)
-    project_table['PROJECTID_USER'] = project_table['PROJECTID_USER'].str[:45] + '-CNRA'
-
+    project_table['PROJECTID_USER'] = project_table['GlobalID']
+    project_table.loc[project_table['PROJECTID_USER'].notna(), 'PROJECTID_USER'] = \
+        project_table.loc[project_table['PROJECTID_USER'].notna(), 'PROJECTID_USER'] + '-CNRA'
+    
     # Remove duplicates
     project_table = project_table.drop_duplicates(subset=['PROJECTID_USER'], keep='first')
     
@@ -257,18 +253,7 @@ def enrich_standardized_features(standardized_features):
 
     logger.info("      step 15/17 update activity end date")
 
-    # Update activity end dates
-    def update_activity_end(row):
-        if pd.isna(row['ACTIVITY_END']):
-            if row['ACTIVITY_STATUS'] in ['ACTIVE', 'Active', 'COMPLETE', 'Complete']:
-                return datetime.now()
-            elif row['ACTIVITY_STATUS'] in ['PLANNED', 'Planned']:
-                if pd.isna(row['ACTIVITY_START']):
-                    return datetime.now()
-                return row['ACTIVITY_START']
-        return row['ACTIVITY_END']
 
-    standardized_features['ACTIVITY_END'] = standardized_features.apply(update_activity_end, axis=1)
 
     standardized_features = add_common_columns(standardized_features)
     show_columns(logger, standardized_features, "standardized_features")    
@@ -296,22 +281,34 @@ def enrich_CNRA_features(
     
     logger.info("   Part 1 Prepare Features")
     input_features = input_features.copy()
-    input_features['PROJECTID_USER'] = input_features['PROJECTID_USER'].astype(str).str[:45] + '-CNRA'
-    input_features['TRMTID_USER'] = input_features['TRMTID_USER'].astype(str).str[:45] + '-CNRA'
+
+    # UPDATE
+    # drop nan val in global id
+    # use globalid
+    input_features = input_features.dropna(subset=['GlobalID'])
+
+    # not used in update
+    #input_features['PROJECTID_USER'] = input_features['PROJECTID_USER'].astype(str).str[:45] + '-CNRA'
+    #input_features['TRMTID_USER'] = input_features['TRMTID_USER'].astype(str).str[:45] + '-CNRA'
     
     # Part 2 Prepare Activity Table
     activity_table = prepare_activity_table(cnra_activities)
+    
     
     logger.info("   Part 3 - Combine CNRA Features and Activity Table")
     logger.info("      step 6/17 join polygon table and activity table")
     # Merge features with activity table
     merged_data = input_features.merge(
         activity_table,
-        left_on='GlobalID_text',
+        left_on='GlobalID',
         right_on='TREATMENTID_',
-        how='inner'
+        how='left'
     )
-    
+
+    # UPDATE: update TRMTID_USER as TREATMENTID_ for reports
+    logger.info("         calculate unique Treatment ID with postfix '-CNRA'")
+    merged_data['TRMTID_USER'] = merged_data['GlobalID'] + '-CNRA'
+        
     merged_data = merged_data.drop_duplicates()
     
     # Part 4 Prepare Project Table
@@ -326,14 +323,26 @@ def enrich_CNRA_features(
     merged_data_no_geom = merged_data.drop(columns=['geometry'])
     project_table_no_geom = project_table.drop(columns=['geometry'])
 
-    # Get rid of duplicate PROJECTID_USER in project_data
-    project_table_no_geom = project_table_no_geom.drop_duplicates(subset=['PROJECTID_USER'], keep='first')
-
+    # UDPATE
+    # merge condition: PROJECT_USER has human error per CNRA admin, change to GlobalID instead
     cnra_flat = merged_data.merge(
         project_table_no_geom,
-        on='PROJECTID_USER',
+        left_on='PROJECTID',
+        right_on='GlobalID',
         how='left'
     )
+
+
+    # UDPATE: update PROJECTID_USER as PROJECTID for reports
+    cnra_flat['PROJECTID_USER'] = cnra_flat['PROJECTID']
+    cnra_flat.loc[cnra_flat['PROJECTID_USER'].notna(), 'PROJECTID_USER'] = \
+        cnra_flat.loc[cnra_flat['PROJECTID_USER'].notna(), 'PROJECTID_USER'] + '-CNRA'
+    
+
+    print("!!!!")
+    print (len(cnra_flat['TRMTID_USER'].unique()))
+    print (len(cnra_flat['PROJECTID_USER'].unique()))
+    
 
     """
     # Perform the merge without geometries
@@ -372,13 +381,6 @@ def enrich_CNRA_features(
         crs=standardized_features.crs
     )
     
-    # Create new GeoDataFrame with matching schema
-    standardized_features = gpd.GeoDataFrame(
-        cnra_flat_copy[common_columns],
-        geometry='geometry',
-        crs=standardized_features.crs
-    )
-    
     logger.info(f"      standardized has {len(standardized_features)} records")
 
     # Part 6 Standardize and Enrich
@@ -387,6 +389,9 @@ def enrich_CNRA_features(
     # Convert to points if needed
     if feature_type == 'point' and not standardized_features.geom_type.eq('Point').all():
         standardized_features['geometry'] = standardized_features.geometry.centroid
+
+    # MRCA reported activity should belong to SMMC
+    standardized_features.loc[standardized_features.ADMINISTERING_ORG == 'MRCA', 'ADMINISTERING_ORG'] = 'SMMC'
         
     logger.info("   Part 7 Calculate Board Vegetation Types, Ownership and Others ... ")    
     standardized_features = keep_fields(standardized_features)
@@ -496,16 +501,23 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    cnra_input_gdb_path = "b_Originals/CNRA_Tracker_Data_UpdatedCM_20240827.gdb"
-    cnra_polygon_layer_name = "TREATMENT_POLY_20240827"
-    cnra_line_layer_name = "TREATMENT_LINE_20240827"
-    cnra_point_layer_name = "TREATMENT_POINT_20240827"
-    cnra_project_polygon_layer_name = "PROJECT_POLY_20240827"
-    cnra_activity_layer_name = "ACTIVITIES_20240827"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/CNRA_{start_year}_{end_year}.gdb"
-    output_layer_name = f"CNRA_enriched_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    cnra_input_gdb_path = config_inputs['sources']['cnra']['input']['gdb_path']
+    cnra_polygon_layer_name = config_inputs['sources']['cnra']['input']['polygon_layer_name']
+    cnra_line_layer_name = config_inputs['sources']['cnra']['input']['line_layer_name']
+    cnra_point_layer_name = config_inputs['sources']['cnra']['input']['point_layer_name']
+    cnra_project_polygon_layer_name = config_inputs['sources']['cnra']['input']['project_layer_name']
+    cnra_activity_layer_name =config_inputs['sources']['cnra']['input']['activity_layer_name']
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['sources']['cnra']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['sources']['cnra']['output']['layer_name'].format(**output_format_dict)
 
     enrich_CNRA(cnra_input_gdb_path,
                 cnra_polygon_layer_name,

@@ -336,7 +336,7 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
 
     logger.info("            enrich step 20/32 spatial join ownership")    
     wui_centroids_ownership = gpd.sjoin(wui_centroids_gdf, ownership_layer, how="left", predicate="intersects")
-    wui_centroids_ownership = wui_centroids_ownership.drop(columns=['GIS_ACRES', 'Shape_Length', 'Shape_Area'])
+    wui_centroids_ownership = wui_centroids_ownership.drop(columns=['Shape_Length', 'Shape_Area'])
     if "index_right" in wui_centroids_ownership.columns:
         wui_centroids_ownership = wui_centroids_ownership.drop(columns=["index_right"])
     
@@ -345,7 +345,7 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
 
     logger.info("            enrich step 21/32 spatial join with regions layer")
     wui_centroids_ownership_regions = gpd.sjoin(wui_centroids_ownership, regions_layer, how="left", predicate="intersects")
-    wui_centroids_ownership_regions = wui_centroids_ownership_regions.drop(columns=['GIS_Acres', 'Shape_Area', 'Shape_Length'])
+    wui_centroids_ownership_regions = wui_centroids_ownership_regions.drop(columns=['Shape_Area', 'Shape_Length'])
     if "index_right" in wui_centroids_ownership_regions.columns:
         wui_centroids_ownership_regions = wui_centroids_ownership_regions.drop(columns=["index_right"])
 

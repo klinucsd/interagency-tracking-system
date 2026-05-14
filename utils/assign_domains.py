@@ -1,8 +1,9 @@
+
 import logging
-import os
 import pandas as pd
 import geopandas as gpd
 import numpy as np
+import yaml
 from pandas.api.types import CategoricalDtype
 from typing import Dict, Tuple
 
@@ -28,11 +29,14 @@ def create_domain_categories(excel_path: str) -> Dict[str, Tuple[CategoricalDtyp
         Dictionary with sheet names as keys and tuples of (CategoricalDtype, domain_dict) as values
         where domain_dict maps codes to descriptions
     """
+
     # Read all sheets from Excel file
-    # Get the project root directory (utils/ -> parent)
-    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    domain_file_path = os.path.join(project_root, "Domain_Tables_20231004.xlsx")
-    excel = pd.ExcelFile(domain_file_path)
+    if excel_path is not None:
+        excel = pd.ExcelFile(excel_path)
+    else:
+        with open("../config.yaml", 'r') as stream:
+            config_inputs = yaml.safe_load(stream)
+        excel = pd.ExcelFile(config_inputs['global']['domain_table'])
     
     # Dictionary to store categorical types and domain dictionaries
     domain_categories = {}
@@ -229,7 +233,7 @@ def assign_activity_domains(gdf, domains):
 
 
 def assign_domains(gdf):
-    domains = create_domain_categories("Domain_Tables_20231004.xlsx")
+    domains = create_domain_categories("../Domain_Tables_20231004.xlsx")
     gdf = assign_project_domains(gdf, domains)
     gdf = assign_treatment_domains(gdf, domains)
     gdf = assign_activity_domains(gdf, domains)
@@ -239,7 +243,7 @@ def assign_domains(gdf):
 # Example usage:
 if __name__ == "__main__":
     # Create domains from Excel
-    domains = create_domain_categories("Domain_Tables_20231004.xlsx")
+    domains = create_domain_categories("../Domain_Tables_20231004.xlsx")
 
     # Print domain information
     for domain_name, (cat_type, domain_dict) in domains.items():
@@ -256,4 +260,5 @@ if __name__ == "__main__":
     # gdf = apply_domain(gdf, "PRIMARY_OBJECTIVE", "D_OBJECTIVE", domains)
     # gdf = apply_domain(gdf, "SECONDARY_OBJECTIVE", "D_OBJECTIVE", domains)
     # gdf = apply_domain(gdf, "PROJECT_STATUS", "D_STATUS", domains)
+
 

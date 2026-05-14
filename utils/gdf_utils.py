@@ -41,6 +41,8 @@ def repair_geometries(gdf):
     # Attempt to fix invalid geometries using the buffer(0) trick
     gdf['geometry'] = gdf.geometry.buffer(0)
 
+    gdf['geometry'] = gdf.geometry.make_valid()
+
     # Optionally, re-check for validity after fixing
     gdf['is_valid'] = gdf.geometry.is_valid
 

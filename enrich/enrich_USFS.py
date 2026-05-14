@@ -11,6 +11,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -72,7 +73,8 @@ def enrich_USFS(usfs_gdb_path,
                 start_year,
                 end_year,
                 output_gdb_path,
-                output_layer_name):
+                output_layer_name,
+                manager = None):
 
     usfs_gdb_name = os.path.basename(usfs_gdb_path)        
     logger.info(f"Loading the USFS data into GeoDataFrames: {usfs_gdb_name} : {usfs_layer_name}")
@@ -131,14 +133,25 @@ def enrich_USFS(usfs_gdb_path,
     gdf = usfs[usfs['ACTIVITY_CODE'].isin(activity_codes)].copy()
     
     # Filter out specific conditions for activity codes
-    mask_1117 = ~((gdf['ACTIVITY_CODE'] == '1117') & (gdf['FUELS_KEYPOINT_AREA'] == '6'))
-    mask_1117_null = ~((gdf['ACTIVITY_CODE'] == '1117') & (gdf['FUELS_KEYPOINT_AREA'].isna()))
-    mask_1119 = ~((gdf['ACTIVITY_CODE'] == '1119') & (gdf['FUELS_KEYPOINT_AREA'] == '6'))
-    mask_1119_null = ~((gdf['ACTIVITY_CODE'] == '1119') & (gdf['FUELS_KEYPOINT_AREA'].isna()))
-    mask_2510_6 = ~((gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] == '6'))
-    mask_2510_3 = ~((gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] == '3'))
+
+    main_gdf = gdf[~gdf['ACTIVITY_CODE'].isin(['1117', '1119', '2510', '2341'])]
+    # only keep 1117 (Wildfire - natural ignition) where keypoint is 6 (fuels reduction program)
+
+    select_1117_6 = gdf[(gdf['ACTIVITY_CODE'] == '1117') & (gdf['FUELS_KEYPOINT_AREA'] == '6')]
+
+    # only keep 1119 (Planned Treatment Burned in Wildfire) where keypoint is 6 (fuels reduction program)
+    select_1119_6 = gdf[(gdf['ACTIVITY_CODE'] == '1119') & (gdf['FUELS_KEYPOINT_AREA'] == '6')]
+
+    # only keep 2510 where keypoint is 6 or 3
+    select_2150_6 = gdf[(gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] == '6')]
+    select_2150_3 = gdf[(gdf['ACTIVITY_CODE'] == '2510') & (gdf['FUELS_KEYPOINT_AREA'] == '3')]
+
+    # only keep 2341 where keypoint is 6 or 3
+    select_2341_6 = gdf[(gdf['ACTIVITY_CODE'] == '2341') & (gdf['FUELS_KEYPOINT_AREA'] == '6')]
+    select_2341_3 = gdf[(gdf['ACTIVITY_CODE'] == '2341') & (gdf['FUELS_KEYPOINT_AREA'] == '3')]
     
-    gdf = gdf[mask_1117 & mask_1117_null & mask_1119 & mask_1119_null & mask_2510_6 & mask_2510_3]
+
+    gdf = pd.concat([main_gdf, select_1117_6, select_1119_6, select_2150_3, select_2150_6, select_2341_3, select_2341_6])
     
     # Date filtering
     has_date = ~(gdf['DATE_COMPLETED'].isna() & gdf['DATE_AWARDED'].isna() & gdf['NEPA_SIGNED_DATE'].isna())
@@ -185,8 +198,12 @@ def enrich_USFS(usfs_gdb_path,
     
     logger.info("   step 5/8 Calculating End Date...")
     gdf['ACTIVITY_END'] = gdf['DATE_COMPLETED']
-    gdf.loc[gdf['ACTIVITY_END'].isna(), 'ACTIVITY_END'] = gdf['NEPA_SIGNED_DATE']
+    # remove activity end impede
     
+    #gdf.loc[gdf['ACTIVITY_END'].isna(), 'ACTIVITY_END'] = gdf['NEPA_SIGNED_DATE']
+    
+
+    # TODO this need to be input year specific
     logger.info("   step 6/8 Calculating Status...")
     def get_status(row):
         if pd.notnull(row['DATE_COMPLETED']):
@@ -236,6 +253,7 @@ def enrich_USFS(usfs_gdb_path,
     logger.info("Remove Unnecessary Columns...")
     gdf = keep_fields(gdf)
 
+    #this line is probably not required in the current 
     logger.info(f"Select records between {start_year} and {end_year}...")
     gdf_filtered = gdf[(gdf['Year'] >= start_year) & (gdf['Year'] <= end_year)]
 
@@ -256,15 +274,26 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/USFS_{start_year}_{end_year}.gdb"
 
-    region_ids = ["04", "05", "06"]
-    for region_id in region_ids:    
-        usfs_input_gdb_path = f"b_Originals/USFS_FACTS_2023_20240620_uploadEmilyBrodie/Actv_CommonAttribute_PL_Region{region_id}.gdb"
-        usfs_input_layer_name = "Actv_CommonAttribute_PL"
-        output_layer_name = f"USFS_Region{region_id}_enriched_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    usfs_input_base_path = config_inputs['sources']['usfs']['input']['base_path'] 
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['sources']['usfs']['output']['gdb_path'].format(**output_format_dict)
+
+    region_ids = config_inputs['sources']['usfs']['input']['regions']
+    for region_id in region_ids: 
+        usfs_input_file_name = config_inputs['sources']['usfs']['input']['gdb_template'].format(**{'region': region_id})
+        usfs_input_gdb_path = os.path.join(usfs_input_base_path, usfs_input_file_name)
+        usfs_input_layer_name = config_inputs['sources']['usfs']['input']['layer_name']
+        output_format_dict['region'] = region_id
+        output_layer_name = config_inputs['sources']['usfs']['output']['layer_name'].format(**output_format_dict)
         enrich_USFS(usfs_input_gdb_path,
                     usfs_input_layer_name,
                     a_reference_gdb_path,

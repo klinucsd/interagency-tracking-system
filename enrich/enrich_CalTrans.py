@@ -11,6 +11,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -43,48 +44,48 @@ warnings.filterwarnings("ignore", message="Measured \\(M\\) geometry types are n
 
 
 CALTRANS_TREE_ACTIVITY_COLUMNS = [
-    'Resp_District', 'Work_Order_Number', 'Begin_County', 'End_County', 'Route',
+    'Work_Order_Number', 'Begin_County', 'End_County', 'Route',
     'Route_Suffix', 'From_PM_Prefix', 'From_PM', 'From_PM_Suffix', 'From_PM_C',
     'To_PM_Prefix', 'To_PM', 'To_PM_Suffix', 'To_PM_C', 'Production_Quantity',
     'UOM', 'Maintenance_Type', 'Comments', 'Activity', 'Activity_Description',
-    'IMMS_Unit_ID', 'Fiscal_Year', 'From_Miles', 'To_Miles', 'Highway_ID',
+    'IMMS_Unit_ID', 'Fiscal_Year', 'From_Miles', 'To_Miles', 'HighwayID',
     'Shape_Length', 'BeginWorkDate', 'EndWorkDate', 'ACTIVITY_STATUS',
     'BROAD_VEGETATION_TYPE', 'RESIDUE_QUANTITY', 'RESIDUE_FATE',
     'ACTIVITY_PERCENT_COMPLETE', 'ActivityID', 'ACTIVITY_NAME',
     'PRIMARY_FUNDING_SOURCE_NAME', 'PRIMARY_FUNDING_ORG_NAME',
-    'SECONDARY_FUNDING_SOURCE_NAME', 'SECONDARY_FUNDING_ORG__NAME',
+    'SECONDARY_FUNDING_SOURCE_NAME', 'Secondary_Funding_Org_Name',
     'TERTIARY_FUNDING_SOURCE_NAME', 'TERTIARY_FUNDING_ORG_NAME',
-    'ADMINISTERING_ORG_NAME', 'IMPLEMENTING_ORG_NAME', 'ACTIVITY_DESC',
+    'ADMINISTERING_ORG_NAME', 'IMPLEMENTING_ORG_NAME',
     'Route_Num', 'Calendar_Year', 'District', 'Route_C'
 ]
 
 CALTRANS_ROAD_ACTIVITY_COLUMNS = [
-    'Resp_District', 'Work_Order_Number', 'Begin_County', 'End_County', 'Route_Num',
+    'Work_Order_Number', 'Begin_County', 'End_County', 'Route_Num',
     'Route', 'Route_Suffix', 'From_PM_Prefix', 'From_PM', 'From_PM_Suffix', 'From_PM_C',
     'To_PM_Prefix', 'To_PM', 'To_PM_Suffix', 'To_PM_C', 'Production_Quantity', 'UOM',
-    'Maintenance_Type', 'Comments', 'Activity', 'Activity_Description', 'Highway_ID',
-    'IMMS_Unit_ID', 'Fiscal_Year', 'From_Miles', 'To_Miles', 'WorkBeginDate',
-    'WorkEndDate', 'ACTIVITY_NAME', 'PRIMARY_FUNDING_SOURCE_NAME',
+    'Maintenance_Type', 'Comments', 'Activity', 'Activity_Description', 'HighwayID',
+    'IMMS_Unit_ID', 'Fiscal_Year', 'From_Miles', 'To_Miles', 'Begin_Date',
+    'End_Date', 'ACTIVITY_NAME', 'PRIMARY_FUNDING_SOURCE_NAME',
     'PRIMARY_FUNDING_ORG_NAME', 'SECONDARY_FUNDING_SOURCE_NAME',
-    'SECONDARY_FUNDING_ORG__NAME', 'TERTIARY_FUNDING_SOURCE_NAME',
+    'Secondary_Funding_Org_Name', 'TERTIARY_FUNDING_SOURCE_NAME',
     'TERTIARY_FUNDING_ORG_NAME', 'ADMINISTERING_ORG_NAME', 'IMPLEMENTING_ORG_NAME',
     'ACTIVITY_STATUS', 'BROAD_VEGETATION_TYPE', 'RESIDUE_QUANTITY', 'RESIDUE_FATE',
-    'ACTIVITY_PERCENT_COMPLETE', 'ActivityID', 'ACTIVITY_DESC', 'Calendar_Year',
+    'ACTIVITY_PERCENT_COMPLETE', 'ActivityID', 'Calendar_Year',
     'District', 'Route_C'
 ]
 
 CALTRANS_TREE_TREATMENT_COLUMNS = [
     'District_txt', 'District_num', 'County', 'Route_num', 'Route_txt',
-    'Route_suffix', 'Route_c', 'Highway_ID', 'FREQUENCY', 'SUM_Production_Quantity',
-    'Ownership_Group', 'Primary_Objective', 'Secondary_Objective',
+    'Route_suffix', 'HighwayID', 'FREQUENCY', 'SUM_Production_Quantity',
+    'Primary_Objective', 'Secondary_Objective',
     'Tertiary_Objective', 'Estimated_Retreatment_Date', 'Treatment_Status',
     'Calendar_Year', 'Shape_Length', 'geometry'
 ]
 
 CALTRANS_ROAD_TREATMENT_COLUMNS = [
     'District_txt', 'District_num', 'County', 'Route_num', 'Route_txt',
-    'Route_suffix', 'Route_c', 'Highway_ID', 'FREQUENCY', 'SUM_Production_Quantity',
-    'Ownership_Group', 'Primary_Objective', 'Secondary_Objective',
+    'Route_suffix', 'HighwayID', 'FREQUENCY', 'SUM_Production_Quantity',
+    'Primary_Objective', 'Secondary_Objective',
     'Tertiary_Objective', 'Estimated_Retreatment_Date', 'Treatment_Status',
     'Calendar_Year', 'Shape_Length', 'geometry'
 ]
@@ -119,7 +120,7 @@ def caltrans(
     merged_data = caltrans_lines.merge(
         caltrans_table, 
         how='inner', 
-        on=['Highway_ID', 'Calendar_Year']
+        on=['HighwayID', 'Calendar_Year']
     )
     logger.info(f"      merged_data has {len(merged_data)} records")
     
@@ -137,7 +138,7 @@ def caltrans(
     
     # Calculate fields
     logger.info("   step 4/10 calculate column values")
-    merged_data['PROJECTID_USER'] = merged_data['Highway_ID']
+    merged_data['PROJECTID_USER'] = merged_data['HighwayID']
     merged_data['AGENCY'] = 'CALSTA'
     merged_data['ORG_ADMIN_p'] = 'CALTRANS'
     merged_data['ORG_ADMIN_t'] = 'CALTRANS'
@@ -151,7 +152,7 @@ def caltrans(
     merged_data['PRIMARY_FUNDING_ORG'] = 'CALTRANS'
     merged_data['PRIMARY_FUND_ORG_NAME'] = 'CALTRANS'
     merged_data['TRMTID_USER'] = merged_data.apply(
-        lambda x: f"{x['Highway_ID']}-{x['From_PM_C']}-{x['To_PM_C']}", axis=1
+        lambda x: f"{x['HighwayID']}-{x['From_PM_C']}-{x['To_PM_C']}", axis=1
     )
     merged_data['TREATMENT_AREA'] = merged_data.apply(
         lambda x: calc_treatment_area(x['UOM'], x['Production_Quantity']), axis=1
@@ -164,8 +165,8 @@ def caltrans(
     merged_data['ACTIVITY_UOM'] = merged_data['UOM'].apply(convert_uom)
     merged_data['ACTIVITY_QUANTITY'] = merged_data['Production_Quantity']
     merged_data['ACTIVITY_STATUS'] = 'COMPLETE'
-    merged_data['ACTIVITY_START'] = merged_data['WorkBeginDate']
-    merged_data['ACTIVITY_END'] = merged_data['WorkEndDate']
+    merged_data['ACTIVITY_START'] = merged_data['Begin_Date']
+    merged_data['ACTIVITY_END'] = merged_data['End_Date']
     merged_data['Source'] = 'CALTRANS'
     merged_data['Crosswalk'] = merged_data['Activity_Description']
     merged_data['TRMT_GEOM'] = 'LINE'
@@ -177,6 +178,7 @@ def caltrans(
     # Enrich data
     logger.info("   step 6/10 calculate broad veg table, region and etc")
     enriched_data = enrich_lines(merged_data, a_reference_gdb_path, start_year, end_year)    
+
     logger.info(f"      enriched data has {len(enriched_data)} records")
     
     # Final calculations
@@ -224,13 +226,48 @@ def enrich_Caltrans(caltrans_input_gdb_path,
     show_columns(logger, tree_treatments, "tree_treatments")
     """
 
+    # remap col name to ITS col names
+    activity_dict = {'Route_Txt': 'Route_C',
+                    'Fiscal_Yr': 'Fiscal_Year',
+                    'Activity_Name': 'ACTIVITY_NAME',
+                    'Primary_Funding_Source_Name': 'PRIMARY_FUNDING_SOURCE_NAME', 
+                    'Primary_Funding_Org_Name': 'PRIMARY_FUNDING_ORG_NAME',
+                    'Secondary_Funding_Source_Name': 'SECONDARY_FUNDING_SOURCE_NAME',
+                    'Tertiary_Funding_Source_Name': 'TERTIARY_FUNDING_SOURCE_NAME', 
+                    'Tertiary_Funding_Org_Name': 'TERTIARY_FUNDING_ORG_NAME',
+                    'Administering_Org_Name': 'ADMINISTERING_ORG_NAME', 
+                    'Implementing_Org_Name': 'IMPLEMENTING_ORG_NAME', 
+                    'Activity_Status': 'ACTIVITY_STATUS',
+                    'Broad_Vegetation_Type': 'BROAD_VEGETATION_TYPE', 
+                    'Residue_Quantity': 'RESIDUE_QUANTITY', 
+                    'Residue_Fate': 'RESIDUE_FATE',
+                    'Activity_Percent_Complete': 'ACTIVITY_PERCENT_COMPLETE',
+                    'District_Num': 'District'}
+        
+    treatment_dict = {'Route': 'Route_num',
+                      'County_txt': 'County',
+                      'RouteS': 'Route_suffix',
+                      'District': 'District_num'}
+    
+
     logger.info("Load Caltrans road activity layer into a DataFrame")
     road_activities = gpd.read_file(caltrans_input_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *  FROM {road_activity_layer_name}")
+    road_activities = road_activities.rename(activity_dict, axis=1)
+
+    # create txt route field if not exist
+    if 'Route' not in road_activities.columns:
+        max_len = len(str(road_activities.Route_Num.max()))
+        road_activities['Route'] = road_activities['Route_Num'].apply(lambda x: '0'*(max_len-len(str(x))) + str(x))
+
+    
+
     verify_gdf_columns(road_activities, CALTRANS_ROAD_ACTIVITY_COLUMNS, logger)
     show_columns(logger, road_activities, "road_activities")
 
     logger.info("Load Caltrans road treatment layer into a GeoDataFrame")
     road_treatments = gpd.read_file(caltrans_input_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT * FROM {road_treatment_layer_name}")
+    road_treatments = road_treatments.rename(treatment_dict, axis=1)
+
     verify_gdf_columns(road_treatments, CALTRANS_ROAD_TREATMENT_COLUMNS, logger)
     road_treatments = road_treatments.to_crs(3310)
     show_columns(logger, road_treatments, "road_treatments")
@@ -244,20 +281,29 @@ def enrich_Caltrans(caltrans_input_gdb_path,
         output_gdb_path,
         output_layer_name)
     
+
     
 if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
+
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
     
-    caltrans_input_gdb_path = "b_Originals/Caltrans_Vegetation_Management_20_23.gdb"
-    tree_activity_layer_name = "Caltrans_Vegetation_Management_Trees_ActivitiesTable_20_23"
-    tree_treatment_layer_name = "Caltrans_Vegetation_Management_Trees_Treatments_20_23"
-    road_activity_layer_name = "Caltrans_Vegetation_Management_RoadsideLandscape_ActivitiesTable_20_23"
-    road_treatment_layer_name = "Caltrans_Vegetation_Management_RoadsideLandscape_Treatments_20_23"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2021, 2023
-    output_gdb_path = f"/tmp/CalTRANS_{start_year}_{end_year}.gdb"
-    output_layer_name = f"CalTRANS_enriched_{datetime.today().strftime('%Y%m%d')}"
+    caltrans_input_gdb_path = config_inputs['sources']['caltrans']['input']['gdb_path']
+    # tree layers are not used for this project for now
+    tree_activity_layer_name = None
+    tree_treatment_layer_name = None
+    road_activity_layer_name = config_inputs['sources']['caltrans']['input']['road_activity_layer_name']
+    road_treatment_layer_name = config_inputs['sources']['caltrans']['input']['road_treatment_layer_name']
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['sources']['caltrans']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['sources']['caltrans']['output']['layer_name'].format(**output_format_dict)
 
     enrich_Caltrans(caltrans_input_gdb_path,
                     tree_activity_layer_name,

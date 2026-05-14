@@ -4,6 +4,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -40,8 +41,7 @@ NFPORS_POLYGON_COLUMNS = [
     'act_comp_dt', 'nfporsfid', 'trt_id_db', 'type_name', 'cat_nm', 'trt_statnm',
     'col_methnm', 'plan_int_dt', 'unit_id', 'agency', 'trt_id', 'created_by', 'edited_by',
     'projectname', 'regionname', 'projectid', 'keypointarea', 'unitname', 'deptname',
-    'countyname', 'statename', 'regioncode', 'districtname', 'isbil', 'bilfunding',
-    'Shape_Length', 'Shape_Area', 'OBJECTID', 'geometry'
+    'countyname', 'statename', 'regioncode', 'districtname', 'isbil', 'bilfunding', 'geometry'
 ]
 
 
@@ -55,7 +55,7 @@ NFPORS_BIA_COLUMNS = [
     'regionalapprvdt', 'bureauapprvdt', 'unitofmeas', 'plancontrcost', 'plandirectcost',
     'treatmentowner', 'nepatype', 'movedbetcondclassacres', 'regioncode', 'projectid',
     'treatmentlocalidentifier', 'obligationfiscalyear', 'actualcompletionyear',
-    'activitytreatmentnotes', 'iswui', 'iscompleted', 'bureaurecguid', 'isbil', 'OBJECTID',
+    'activitytreatmentnotes', 'iswui', 'iscompleted', 'bureaurecguid', 'isbil',
     'geometry'
 ]
 
@@ -70,10 +70,9 @@ NFPORS_FWS_COLUMNS = [
     'regionalapprvdt', 'bureauapprvdt', 'unitofmeas', 'plancontrcost', 'plandirectcost',
     'treatmentowner', 'nepatype', 'movedbetcondclassacres', 'regioncode', 'projectid',
     'treatmentlocalidentifier', 'obligationfiscalyear', 'actualcompletionyear',
-    'activitytreatmentnotes', 'iswui', 'iscompleted', 'bureaurecguid', 'isbil', 'OBJECTID',
+    'activitytreatmentnotes', 'iswui', 'iscompleted', 'bureaurecguid', 'isbil',
     'geometry'
 ]
-
 
 def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name):
     """
@@ -81,8 +80,9 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
     """
     logger.info("Performing Polygons Standardization")
     
+    ### UPDATE: remove NPS due to NPS having independent dataset now
     logger.info("   step 1/11 select by DOI agency (BIA, FWS, NPS)")
-    nfpors_polygon_gdf = nfpors_polygon_gdf[nfpors_polygon_gdf['agency'].isin(['BIA', 'FWS', 'NPS'])]
+    nfpors_polygon_gdf = nfpors_polygon_gdf[nfpors_polygon_gdf['agency'].isin(['BIA', 'FWS'])]
     
     logger.info("   step 2/11 select after 1995")
 
@@ -113,10 +113,7 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
     nfpors_polygon_gdf['ACTIVITY_UOM'] = 'AC'
     
     # Handle activity quantity
-    nfpors_polygon_gdf['ACTIVITY_QUANTITY'] = nfpors_polygon_gdf.apply(
-        lambda x: x['gis_acres'] if x['act_acc_ac'] == 0 else x['act_acc_ac'],
-        axis=1
-    )
+    nfpors_polygon_gdf['ACTIVITY_QUANTITY'] = nfpors_polygon_gdf['gis_acres']
     
     nfpors_polygon_gdf['ACTIVITY_START'] = nfpors_polygon_gdf['modifiedon']
     
@@ -125,8 +122,16 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
         lambda x: x['act_comp_dt'] if pd.notnull(x['act_comp_dt']) else x['modifiedon'],
         axis=1
     )
+
+    def get_poly_status(status_col):
+        if status_col == "Accomplished":
+            return "COMPLETE"
+        elif status_col == "Initiated":
+            return "ACTIVE"
+        else:
+            return status_col
     
-    nfpors_polygon_gdf['ACTIVITY_STATUS'] = 'COMPLETE'
+    nfpors_polygon_gdf['ACTIVITY_STATUS'] = nfpors_polygon_gdf['trt_statnm'].apply(get_poly_status)
     nfpors_polygon_gdf['Source'] = 'nfpors_haz_fuels_treatments_reduction'
     nfpors_polygon_gdf['Crosswalk'] = nfpors_polygon_gdf['type_name']
     
@@ -152,6 +157,20 @@ def standardize_NFPORS_polygon(nfpors_polygon_gdf, a_reference_gdb_path, start_y
 
     logger.info("   step 10/11 assign Domains...")
     nfpors_polygon_gdf = assign_domains(nfpors_polygon_gdf)
+
+
+    # UPDATE: FWS polygon record have faulty data that each part of a TRMTID_USER/PROJECTID_USER record 
+    # that is a multi-part polygon is being logged as a unique activity, but the ACTIVITY_QUANTITY is 
+    # being reported as the sum of the multipart polygon acres for each record rather than only that 
+    # part of the multipart polygon. 
+    # Solution: use polygon GIS area for ACTIVITY QUANTITY
+    nfpors_polygon_gdf['ACTIVITY_QUANTITY'] = nfpors_polygon_gdf['TREATMENT_AREA']
+    nfpors_polygon_gdf['AGENCY'] = 'DOI'
+
+    # fiscal cutoff for new IFPIRS 
+    # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
+    nfpors_polygon_gdf.loc[nfpors_polygon_gdf['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+    
 
     logger.info("   step 11/11 Save enriched polygons...")
     save_gdf_to_gdb(nfpors_polygon_gdf,
@@ -239,12 +258,24 @@ def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year,
         axis=1
     )
 
-    combined_pts['ACTIVITY_END'] = combined_pts.apply(
-        lambda x: handle_date(x['actualcompletiondate'], x['plannedinitiationdate']),
-        axis=1
-    )
+
+    # TODO: NA if not actual compeleted
+    combined_pts['ACTIVITY_END'] = combined_pts['actualcompletiondate']
     
-    combined_pts['ACTIVITY_STATUS'] = 'Active'
+    # ACTIVITY_STATUS dependent on 3 planned date, actual start date, actual end date
+
+    # Default to have a valid planned date from source dataset
+
+    combined_pts['ACTIVITY_STATUS'] = 'PLANNED'
+    # Active filter
+    # NFPORS default NA for date is 1900-01-01
+    na_dt = pd.to_datetime('1901-01-01')
+    mask_active = combined_pts['actualinitiationdate'].apply(lambda x: pd.to_datetime(x).tz_localize(None) >= na_dt)
+    combined_pts.loc[mask_active, 'ACTIVITY_STATUS'] = 'ACTIVE'
+
+    # Complete filter
+    combined_pts.loc[combined_pts['iscompleted'] == '1', 'ACTIVITY_STATUS'] = 'COMPLETE'
+
     combined_pts['Source'] = 'nfpors_current_fy_treatments'
     combined_pts['Crosswalk'] = combined_pts['typename']
     combined_pts['TRMT_GEOM'] = 'POINT'
@@ -269,6 +300,11 @@ def standardize_NFPORS_point(bia_gdf, fws_gdf, a_reference_gdb_path, start_year,
     logger.info("   step 9/10 assign Domains...")
     nfpors_point_gdf = assign_domains(nfpors_point_gdf)    
 
+    # fiscal cutoff for new IFPIRS 
+    # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
+    nfpors_point_gdf.loc[nfpors_point_gdf['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
+
+
     logger.info("   step 10/10 Save enriched points...")
     save_gdf_to_gdb(nfpors_point_gdf,
                     output_gdb_path,
@@ -292,9 +328,20 @@ def enrich_NFPORS(nfpors_gdb_path,
     start = time.time()
 
     ### Load the polygon layer
-    nfpors_polygon = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nfpors_polygon_layer_name}")
+    nfpors_polygon = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", layer=nfpors_polygon_layer_name)
     logger.info(f"   time for loading {nfpors_polygon_layer_name}: {time.time()-start}")
-    
+
+    # remap column names in 2024 dataset shp abbreviation
+    nfpors_polygon.columns = [c.lower() for c in nfpors_polygon.columns]
+    remap_dict = {'plan_acc_a': 'plan_acc_ac',
+                'act_init_d': 'act_init_dt',
+                'act_comp_d': 'act_comp_dt',
+                'plan_int_d': 'plan_int_dt',
+                'projectnam': 'projectname',
+                'keypointar': 'keypointarea',
+                'districtna': 'districtname'
+                }
+    nfpors_polygon = nfpors_polygon.rename(remap_dict, axis=1)
     # validate the polygon data
     verify_gdf_columns(nfpors_polygon, NFPORS_POLYGON_COLUMNS, logger)
     
@@ -302,24 +349,67 @@ def enrich_NFPORS(nfpors_gdb_path,
     show_columns(logger, nfpors_polygon, "nfpors_polygon")
 
     ### Load the bia layer
-    nfpors_bia = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nfpors_bia_layer_name}")
+    nfpors_bia = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", layer=nfpors_bia_layer_name)
     logger.info(f"   time for loading {nfpors_bia_layer_name}: {time.time()-start}")
+
+
+    ### if fws is not provided, assume bia/fws is contained in the same input dataset
+    if nfpors_fws_layer_name == None:
+
+        nfpors_bia.columns = [c.lower() for c in nfpors_bia.columns]
+        remap_dict={'treatmentn': 'treatmentname',
+            'districtna': 'districtname',
+            'representa': 'representative',
+            'keypointna': 'keypointname',
+            'initiatedf': 'initiatedfy',
+            'completedf': 'completedfy',
+            'plannedini': 'plannedinitiationdate',
+            'actualinit': 'actualinitiationdate',
+            'actualcomp': 'actualcompletiondate',
+            'categoryna': 'categoryname',
+            'plannedacc': 'plannedaccomplishment',
+            'fyaccompli': 'fyaccomplishment',
+            'totalaccom': 'totalaccomplishment',
+            'treatmentc': 'treatmentcreated',
+            'treatmentm': 'treatmentmodified',
+            'treatmenti': 'treatmentid',
+            'projectnam': 'projectname',
+            'activitytr': 'activitytreatapprvd',
+            'localapprv': 'localapprvdt',
+            'regionalap': 'regionalapprvdt',
+            'bureauappr': 'bureauapprvdt',
+            'plancontrc': 'plancontrcost',
+            'plandirect': 'plandirectcost',
+            'treatmento': 'treatmentowner',
+            'movedbetco': 'movedbetcondclassacres',
+            'treatmentl': 'treatmentlocalidentifier',
+            'obligation': 'obligationfiscalyear',
+            'iscomplete': 'iscompleted',
+            'bureaurecg': 'bureaurecguid',
+            'actualco_1': 'actualcompletionyear',
+            'activity_1': 'activitytreatmentnotes'}
+        nfpors_bia = nfpors_bia.rename(remap_dict, axis=1)
     
     # validate the bia data
     verify_gdf_columns(nfpors_bia, NFPORS_BIA_COLUMNS, logger)
+
+ 
     
     nfpors_bia = nfpors_bia.to_crs(3310)
     show_columns(logger, nfpors_bia, "nfpors_bia")
-
-    ### Load the fws layer
-    nfpors_fws = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nfpors_fws_layer_name}")
-    logger.info(f"   time for loading {nfpors_fws_layer_name}: {time.time()-start}")
-
-    # validate the fws data
-    verify_gdf_columns(nfpors_fws, NFPORS_FWS_COLUMNS, logger)
     
-    nfpors_fws = nfpors_fws.to_crs(3310)
-    show_columns(logger, nfpors_fws, "nfpors_fws")
+    if nfpors_fws_layer_name == None:
+        nfpors_fws =  pd.DataFrame(columns=nfpors_bia.columns)
+    else:
+        ### Load the fws layer
+        nfpors_fws = gpd.read_file(nfpors_gdb_path, driver="OpenFileGDB", layer=nfpors_fws_layer_name)
+        logger.info(f"   time for loading {nfpors_fws_layer_name}: {time.time()-start}")
+
+        # validate the fws data
+        verify_gdf_columns(nfpors_fws, NFPORS_FWS_COLUMNS, logger)
+        
+        nfpors_fws = nfpors_fws.to_crs(3310)
+        show_columns(logger, nfpors_fws, "nfpors_fws")
 
     standardize_NFPORS_polygon(nfpors_polygon, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
     standardize_NFPORS_point(nfpors_bia, nfpors_fws, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
@@ -330,14 +420,21 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    nfpors_input_gdb_path = "b_Originals/NFPORS_2023_20240624_ServiceDownload.gdb"
-    nfpors_polygon_layer_name = "NFPORS_2023_20240619_Fuel_Treatment_Polygons_ServiceDownload"
-    nfpors_bia_layer_name = "NFPORS_2023_20240619_Current_FY_Treatments_BIA_ServiceDownload"
-    nfpors_fws_layer_name = "NFPORS_2023_20240619_Current_FY_Treatments_FWS_ServiceDownload"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/NFPORS_{start_year}_{end_year}.gdb"
-    output_layer_name = f"NFPORS_enriched_{datetime.today().strftime('%Y%m%d')}"
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    nfpors_input_gdb_path = config_inputs['sources']['nfpors']['nfpors']['gdb_path']
+    nfpors_polygon_layer_name = config_inputs['sources']['nfpors']['nfpors']['polygon_layer']
+    nfpors_bia_layer_name = config_inputs['sources']['nfpors']['nfpors']['bia_layer']
+    nfpors_fws_layer_name = None # V2.0 fws and bia are provided in the same layer
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['sources']['nfpors']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['sources']['nfpors']['output']['layer_name'].format(**output_format_dict)
 
     enrich_NFPORS(nfpors_input_gdb_path,
                   nfpors_polygon_layer_name,

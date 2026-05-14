@@ -493,6 +493,8 @@ def update_activity_description(act):
     elif act == 'Yarding/Skidding':
         return 'YARDING'
     else:
+        print('FOUND TBD ACTIVITY DESCRIPTION:')
+        print(act)
         return 'TBD'
 
 
@@ -581,11 +583,11 @@ def update_activity_status(stat):
 def update_activity_uom(units):
     if units in ['acres', 'ACRES', 'Acres', 'ACRE', 'Ac']:
         return 'AC'
-    elif units in ['each', 'Each', 'Ea']:
+    elif units in ['each', 'Each', 'Ea', 'Each (Number)']:
         return 'EA'
     elif units in ['Hours', 'Hour', 'Hr']:
         return 'HR'
-    elif units in ['miles', 'Mi', 'mi', 'mile', 'Mile']:
+    elif units in ['miles', 'Mi', 'mi', 'mile', 'Mile', 'Feet / Miles']:
         return 'MI'
     elif units == 'Other':
         return 'OTHER'

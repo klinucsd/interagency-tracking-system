@@ -12,6 +12,7 @@ import logging
 import time
 import psutil
 import os
+import yaml
 
 import numpy as np
 import pandas as pd
@@ -41,7 +42,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 NPS_COLUMNS = [
-    'OBJECTID', 'TreatmentID', 'LocalTreatmentID', 'TreatmentIdentifierDatabase',
+    'TreatmentID', 'LocalTreatmentID', 'TreatmentIdentifierDatabase',
     'NWCGUnitID', 'ProjectID', 'TreatmentName', 'TreatmentCategory', 'TreatmentType',
     'ActualCompletionDate', 'ActualCompletionFiscalYear', 'TreatmentAcres', 'GISAcres',
     'TreatmentStatus', 'TreatmentNotes', 'DateCurrent', 'PublicDisplay', 'DataAccess',
@@ -113,7 +114,7 @@ def enrich_NPS(nps,
     logger.info("   step 1/11 select after 1995")
     
     # Convert ActualCompletionDate to datetime if it's not already
-    nps['ActualCompletionDate'] = pd.to_datetime(nps['ActualCompletionDate'], unit='ms')
+    nps['ActualCompletionDate'] = pd.to_datetime(nps['ActualCompletionDate'], errors='ignore')#, unit='ms')
     
     # Filter dates after 1995
     mask = (nps['ActualCompletionDate'] > '1995-01-01') | (nps['ActualCompletionDate'].isna())
@@ -169,7 +170,10 @@ def enrich_NPS(nps,
     standardized_nps['Source'] = 'nps_flat_fuelstreatments'
     
     # Field assignments from existing columns
-    standardized_nps['ADMINISTERING_ORG'] = standardized_nps['UnitCode']
+
+    # 04/30
+    # change administering_org to NPS
+    standardized_nps['ADMINISTERING_ORG'] = 'NPS' #standardized_nps['UnitCode']
     standardized_nps['PROJECT_NAME'] = standardized_nps['TreatmentName']
     standardized_nps['IMPLEMENTING_ORG'] = standardized_nps['UnitName']
     standardized_nps['PROJECTNAME_'] = standardized_nps['TreatmentName']
@@ -246,7 +250,20 @@ def enrich_NPS(nps,
     
     logger.info("   step 10/11 Assign Domains...")
     enriched_nps = assign_domains(enriched_nps)
+
+    # copy admin_org_name to administering org
+    # all ADMINISTERING_ORG will be assigned to as "NPS" in the end
+    enriched_nps['ADMINISTERING_ORG'] = enriched_nps['ADMIN_ORG_NAME']
+    enriched_nps['ADMINISTERING_ORG'] = enriched_nps['ADMINISTERING_ORG'].fillna('NPS')
+    enriched_nps['AGENCY'] = enriched_nps['AGENCY'].fillna('NPS')
+
+
+    # fiscal cutoff for new IFPIRS 
+    # BLM, NPS, NFPORS after 2023/10/01 ACTIVITY START will be reported by IFPIRS hence not count to MAS
+    enriched_nps.loc[enriched_nps['ACTIVITY_END'] >= f'2023-10-01', 'COUNTS_TO_MAS'] = 'NO'  
     
+
+
     logger.info("   step 11/11 Save Result...")
     save_gdf_to_gdb(enriched_nps,
                     output_gdb_path,
@@ -265,8 +282,28 @@ def enrich_NPS_from_gdb(nps_gdb_path,
 
     logger.info("Load the NPS data into a GeoDataFrame")
     start = time.time()
+    try:
+        # TEMP: try block for new shapefile input
+        nps = gpd.read_file(nps_gdb_path)
 
-    nps = gpd.read_file(nps_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nps_layer_name}")
+        remap_dict = {'TreatmentI':'TreatmentID',
+            'LocalTreat':'LocalTreatmentID',
+            'Treatmen_1':'TreatmentIdentifierDatabase',
+            'TreatmentN':'TreatmentName',
+            'TreatmentC':'TreatmentCategory',
+            'TreatmentT':'TreatmentType',
+            'ActualComp':'ActualCompletionDate',
+            'ActualCo_1':'ActualCompletionFiscalYear',
+            'TreatmentA':'TreatmentAcres',
+            'TreatmentS':'TreatmentStatus',
+            'Treatmen_2':'TreatmentNotes',
+            'DateCurren':'DateCurrent',
+            'PublicDisp':'PublicDisplay',
+            'LastEditDa':'LastEditDate'
+            }
+        nps = nps.rename(remap_dict, axis=1)
+    except:
+        nps = gpd.read_file(nps_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {nps_layer_name}")
     logger.info(f"   time for loading {nps_layer_name}: {time.time()-start}")
     
     # validate the input data
@@ -274,7 +311,7 @@ def enrich_NPS_from_gdb(nps_gdb_path,
     nps = nps.to_crs(3310)
     show_columns(logger, nps, "nps")
 
-    enrich_NPS(nps, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
+    return enrich_NPS(nps, a_reference_gdb_path, start_year, end_year, output_gdb_path, output_layer_name)
 
 
 def enrich_NPS_from_arcgis(nps_feature_layer_url,
@@ -304,14 +341,25 @@ if __name__ == "__main__":
     # Get the current process ID
     process = psutil.Process(os.getpid())
 
-    nps_gdb_path = 'b_Originals/New_NPS_2023_20240625_ReisThomasViaUpload_1.gdb'
-    nps_layer_name = 'NPS_2023_20240625_ReisThomasViaUpload2'
+    # load config file path yaml
+    with open("..\config.yaml", 'r') as stream:
+        config_inputs = yaml.safe_load(stream)
+
+    nps_gdb_path = config_inputs['sources']['nps']['input']['gdb_path'] 
+    nps_layer_name = config_inputs['sources']['nps']['input']['layer_name'] 
+    if nps_gdb_path[-3:] == 'shp':
+        nps_layer_name = None # if input file type is shapefile, then set layer name to None
+
     nps_arcgis_feature_url = None
     # nps_arcgis_feature_url = "https://services3.arcgis.com/T4QMspbfLg3qTGWY/ArcGIS/rest/services/s_Completed_Perimeters_Past_5FY_View/FeatureServer/0"
-    a_reference_gdb_path = "a_Reference.gdb"
-    start_year, end_year = 2010, 2025
-    output_gdb_path = f"/tmp/NPS_{start_year}_{end_year}.gdb"
-    output_layer_name = f"NPS_enriched_{datetime.today().strftime('%Y%m%d')}"
+    a_reference_gdb_path = config_inputs['global']['reference_gdb']
+    start_year, end_year = config_inputs['global']['start_year'], config_inputs['global']['end_year']
+    output_format_dict = {'start_year': start_year,
+                          'end_year': end_year,
+                          'date': datetime.today().strftime('%Y%m%d')}
+    output_gdb_path = config_inputs['sources']['nps']['output']['gdb_path'].format(**output_format_dict)
+    output_layer_name = config_inputs['sources']['nps']['output']['layer_name'].format(**output_format_dict)
+
 
     if nps_arcgis_feature_url:
         enrich_NPS_from_arcgis(nps_arcgis_feature_url,
