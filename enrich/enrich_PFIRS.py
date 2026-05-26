@@ -43,20 +43,9 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
-PFIRS_COLUMNS = [
-    'Acres_Approved', 'Acres_Burned', 'Acres_Requested', 'Active_On', 'Agency',
-    'Air_Basin', 'Air_District', 'Approved_On', 'Aspect', 'Burn_Date', 'Burn_ID',
-    'Burn_Status', 'Burn_Type', 'Burn_Unit', 'Completed',
-    'County', 'Cover_Type', 'Crossroads', 'Fuel_Type', 'LMA_Name', 'LMA_Unit',
-    'Landowner', 'Last_Updated', 'Latitude', 'Legal_Location', 'Longitude',
-    'Max_Elevation', 'Min_Elevation', 'Monitor_Name',
-    'Monitored', 'OBJECTID', 'Out_On', 'Patrol_On', 'Requested_On', 'SMP', 'Slope',
-    'Tons_per_Acre', 'Total_Tons', 'Unit_Acres', 'Unit_Description', 'geometry'
-]
+PFIRS_COLUMNS = ['Burn ID', 'Burn Unit', 'Burn Date', 'Acres Burned', 'Burn Type', 'geometry']
 
-
-def enrich_PFIRS(pfirs_gdb_path,
-                 pfirs_layer_name,
+def enrich_PFIRS(pfirs_folder_path,
                  treat_poly_gdf,
                  a_reference_gdb_path,
                  lookup_table_path,
@@ -67,9 +56,13 @@ def enrich_PFIRS(pfirs_gdb_path,
 
     logger.info("Load the PFIRS data into a GeoDataFrame")
     start = time.time()
-    pfirs = gpd.read_file(pfirs_gdb_path, driver="OpenFileGDB", sql_dialect="OGRSQL", sql=f"SELECT *, OBJECTID FROM {pfirs_layer_name}")
+
+    pfirs_gdf_list = []
+    for fpath in os.listdir(pfirs_folder_path):
+        pfirs_gdf_list.append(gpd.read_file(os.path.join(pfirs_folder_path, fpath)))
+    pfirs = pd.concat(pfirs_gdf_list)
     pfirs_lookup_df = pd.read_excel(lookup_table_path)
-    logger.info(f"   time for loading {pfirs_layer_name}: {time.time()-start}")
+    logger.info(f"   time for loading {pfirs_folder_path}: {time.time()-start}")
     
     # construct dictionary from lookup table for agency name remaping and anonymous timber company parsing
     pfirs_lookup_dict = pd.Series(pfirs_lookup_df.agency_calc_field_2.values,index=pfirs_lookup_df.Agency).to_dict()
@@ -81,6 +74,9 @@ def enrich_PFIRS(pfirs_gdb_path,
     # Convert to EPSG 3310
     pfirs = pfirs.to_crs(3310)
     show_columns(logger, pfirs, "pfirs")
+
+    # convert ID column to string
+    pfirs['Burn ID'] = pfirs['Burn ID'].astype(int).astype(str)
 
     logger.info("Performing Standardization")
     logger.info("   step 1/8 remove some agencies")
@@ -102,7 +98,7 @@ def enrich_PFIRS(pfirs_gdb_path,
     
     logger.info("   step 4/8 import attributes")
     # Calculate new fields
-    gdf['PROJECTID_USER'] = 'PFIRS-' + gdf.index.astype(str)
+    gdf['PROJECTID_USER'] = 'PFIRS-' + gdf['Burn ID']
 
     # remap agency name 
 
@@ -113,18 +109,18 @@ def enrich_PFIRS(pfirs_gdb_path,
     gdf['PROJECT_CONTACT'] = 'Jason Branz'
     gdf['PROJECT_EMAIL'] = 'jason.branz@arb.ca.gov'
     gdf['ADMINISTERING_ORG'] = gdf['AGENCY']
-    gdf['PROJECT_NAME'] = gdf['Burn_Unit']
+    gdf['PROJECT_NAME'] = gdf['Burn Unit']
     gdf['PRIMARY_FUNDING_SOURCE'] = 'LOCAL'
     gdf['PRIMARY_FUNDING_ORG'] = 'OTHER'
     # parsing anonymity for private timber companies
     gdf['IMPLEMENTING_ORG'] = gdf['AGENCY_'].apply(lambda x: 'Timber Companies' if x in anonymous_org_list else x)
-    gdf['TRMTID_USER'] = 'PFIRS-' + gdf.index.astype(str)
+    gdf['TRMTID_USER'] = 'PFIRS-' + gdf['Burn ID']
     gdf['PROJECTNAME_'] = None
     gdf['ORG_ADMIN_t'] = None
     gdf['BVT_USERD'] = 'NO'
-    gdf['ACTIVITY_END'] = gdf['Burn_Date']
+    gdf['ACTIVITY_END'] = gdf['Burn Date']
     gdf['ACTIVITY_STATUS'] = 'COMPLETE'
-    gdf['ACTIVITY_QUANTITY'] = gdf['Acres_Burned']
+    gdf['ACTIVITY_QUANTITY'] = gdf['Acres Burned']
     gdf['ACTIVITY_UOM'] = 'AC'
     gdf['ADMIN_ORG_NAME'] = 'CARB'
     gdf['IMPLEM_ORG_NAME'] = gdf['AGENCY_']
@@ -148,13 +144,13 @@ def enrich_PFIRS(pfirs_gdb_path,
             'UNK': 'Broadcast Burn'
         }
         return mapping.get(burn_type, burn_type)
-    gdf['Crosswalk'] = gdf['Burn_Type'].apply(map_burn_type)
+    gdf['Crosswalk'] = gdf['Burn Type'].apply(map_burn_type)
 
     # remove all broadcast burn data for all industry groups except FWS Forestry LLC 
     ### 1. everything from non-timber company and FWS Forestry LLC
     ### 2. non-broadcast burn only from timber company
     mask_1 = (gdf['AGENCY_'] == 'FWS Forestry LLC') | (gdf['AGENCY'] != 'Timber Companies')
-    mask_2 = ~mask_1 & (gdf['Burn_Type'] != 'Broadcast')
+    mask_2 = ~mask_1 & (gdf['Burn Type'] != 'Broadcast')
 
     gdf = gdf[mask_1 + mask_2]
 
@@ -189,9 +185,6 @@ def enrich_PFIRS(pfirs_gdb_path,
         
         enriched_gdf = enriched_gdf.loc[out_index]
 
-    # TEMP FIX: reassign AGENCY with ORG_ADMIN_p
-    enriched_gdf['AGENCY'] = enriched_gdf['ORG_ADMIN_p'] 
-    
     logger.info("   step 8/8 Save Result...")
     save_gdf_to_gdb(enriched_gdf,
                     output_gdb_path,
