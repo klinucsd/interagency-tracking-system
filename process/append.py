@@ -26,14 +26,14 @@ logger = logging.getLogger('process.append_polygon')
 
 def check_core_criteria(row):
     core_eval = 0
-    if row['ADMINISTERING_ORG'] is not None:
+    if pd.notna(row['ADMINISTERING_ORG']):
         core_eval +=1
     # status complete
-    if row['ACTIVITY_STATUS'] is not None:
+    if pd.notna(row['ACTIVITY_STATUS']):
         if row['ACTIVITY_STATUS'] == 'COMPLETE':
             core_eval +=1
             # if complete must have a not none end date
-            if row['ACTIVITY_END'] is not None:
+            if pd.notna(row['ACTIVITY_END']):
                 core_eval +=1
         # if status is not complete but filled 
         # activity_end does not need to be valid
@@ -43,11 +43,10 @@ def check_core_criteria(row):
     if row['ACTIVITY_QUANTITY'] > 0:
         core_eval +=1
     
-    if row['ACTIVITY_UOM'] is not None:
+    if pd.notna(row['ACTIVITY_UOM']):
         core_eval +=1
         
     return core_eval
-
 def append_enriched_features(layers):
     gdfs_to_append = []
     for layer in layers:
