@@ -19,7 +19,7 @@ def update_agency_field(agency):
         return 'USDA'
     elif agency == 'Other':
         return 'OTHER'
-    elif agency == 'Industrial Timber':
+    elif agency == 'Industrial Timber' or agency == 'Timber Companies':
         return 'TIMBER'
     elif agency in ['', ' ']:
         return None
