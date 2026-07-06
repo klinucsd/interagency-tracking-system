@@ -185,6 +185,15 @@ def enrich_PFIRS(pfirs_folder_path,
         
         enriched_gdf = enriched_gdf.loc[out_index]
 
+    # DOD agreement on removing specific treatments in Monterery County
+    agency_mask = enriched_gdf.AGENCY == 'DOD'
+    county_mask = enriched_gdf.COUNTY == 'MON'
+    category_mask = enriched_gdf.ACTIVITY_CAT == 'PRESCRB_FIRE'
+    quantity_mask = enriched_gdf.ACTIVITY_QUANTITY > 25
+    year_mask = enriched_gdf.Year >= 2025
+
+    enriched_gdf = enriched_gdf[~(agency_mask & county_mask & category_mask & quantity_mask & year_mask)]
+
     logger.info("   step 8/8 Save Result...")
     save_gdf_to_gdb(enriched_gdf,
                     output_gdb_path,
