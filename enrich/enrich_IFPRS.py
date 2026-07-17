@@ -42,7 +42,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 IFPRS_COLUMNS = ["OBJECTID", "ProjectID", "Agency", "ProjectName", "Name", "InitiationDate", "CompletionDate",
                  "Status", "MeasureAmount", "UnitOfMeasure", "Shape_Area", "FundingSource", "FundingAgency",
-                 "Type", "SubType"]
+                 "Type", "SubType", "Class"]
 
 def enrich_IFPRS(ifprs_gdb_path,
                  ifprs_layer_name,
@@ -60,6 +60,9 @@ def enrich_IFPRS(ifprs_gdb_path,
     
     # Validate the input data
     verify_gdf_columns(ifprs, IFPRS_COLUMNS, logger)
+
+    logger.info("   Filtering to Estimated Treatemnt and Actual Treatemnt...")
+    ifprs = ifprs[ifprs['Class'].isin(["Actual Treatment", "Estimated Treatment"])]
 
     # Filter to California and post-10/1/2023 records
     logger.info("   Filtering to California and Completion after 2023-10-01...")
@@ -98,7 +101,7 @@ def enrich_IFPRS(ifprs_gdb_path,
     standardized_ifprs["PROJECT_NAME"] = standardized_ifprs["ProjectName"]
     standardized_ifprs["ACTIVITY_NAME"] = standardized_ifprs["Name"]
     standardized_ifprs["BVT_USERD"] = "NO"
-    standardized_ifprs["ACTIVITYID_USER"] = standardized_ifprs["OBJECTID"].apply(lambda x: "IFPRS" + str(x))
+    standardized_ifprs["ACTIVID_USER"] = standardized_ifprs["OBJECTID"].apply(lambda x: "IFPRS" + str(x))
 
 
     logger.info("   step 5/15 Calculating Start and End Date...")
