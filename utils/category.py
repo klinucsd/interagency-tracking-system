@@ -46,15 +46,11 @@ def categorize_activity(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
             "CLEARCUT", "COMM_THIN", "CONVERSION", "GRP_SELECTION_HARVEST", 
             "REHAB_UNDRSTK_AREA", "SEED_TREE_PREP_STEP", "SEED_TREE_REM_STEP", "SEED_TREE_SEED_STEP", 
             "SHELTERWD_PREP_STEP", "SHELTERWD_REM_STEP", "SHELTERWD_SEED_STEP", "SINGLE_TREE_SELECTION", 
-            "SP_PRODUCTS", "TRANSITION_HARVEST", "VARIABLE_RETEN_HARVEST"
+            "SP_PRODUCTS", "TRANSITION_HARVEST", "VARIABLE_RETEN_HARVEST", "SALVG_HARVEST", 'SANI_HARVEST'
         }
         if Act in timber_harvest_activities:
             return "TIMB_HARV"
         
-        # Pest control logic
-        if Act in {"SALVG_HARVEST", 'SANI_HARVEST'}:
-            return "SANI_SALVG"
-            
         # Watershed improvement activities
         if Act in {"INV_PLANT_REMOVAL", "ECO_HAB_RESTORATION"}:
             return "MECH_HFR"
