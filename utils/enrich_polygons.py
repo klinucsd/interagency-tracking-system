@@ -298,7 +298,7 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
     
     logger.info("            enrich step 18/32 feature to point")
     wui_centroids_gdf = wui_input_gdf.copy()
-    wui_centroids_gdf['geometry'] = wui_input_gdf.geometry.centroid
+    wui_centroids_gdf['geometry'] = wui_input_gdf.representative_point() # changed to representative point to align
 
     logger.info("            enrich step 19/32 setup ORIG_FID")
     wui_centroids_gdf['ORIG_FID'] = wui_input_gdf.index
@@ -373,7 +373,8 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
     wui_centroids_ownership_regions['PRIMARY_OWNERSHIP_GROUP'] = wui_centroids_ownership_regions['AGNCY_LEV']
 
     logger.info("            enrich step 24/32 calculate county field")
-    wui_centroids_ownership_regions['COUNTY'] = wui_centroids_ownership_regions['COUNTY_right']
+    county_col = wui_centroids_ownership_regions['COUNTY_right'].fillna(wui_centroids_ownership_regions['COUNTY_left'])
+    wui_centroids_ownership_regions['COUNTY'] = county_col
 
     logger.info("            enrich step 25/32 calculate region field")
     wui_centroids_ownership_regions['REGION'] = wui_centroids_ownership_regions['Region']
@@ -385,7 +386,8 @@ def enrich_polygons(enrich_in, a_reference_gdb_path, start_year, end_year):
     calculate_fiscal_years(wui_centroids_ownership_regions) 
     
     logger.info("            enrich step 28/32 Initiating Crosswalk...")
-    crosswalk_table = crosswalk(wui_centroids_ownership_regions, a_reference_gdb_path, start_year, end_year)  
+    crosswalk_table = crosswalk(wui_centroids_ownership_regions, a_reference_gdb_path, start_year, end_year)
+    crosswalk_table['COUNTY'] = county_col
     
     logger.info("         Crosswalk Complete. Continuing Enrichment...")
 
